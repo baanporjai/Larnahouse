@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Frozen Larna Cake</title>
+<meta name="description" id="pageDesc" content="Frozen Larna Cake product detail">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand">
+      <img src="https://ik.imagekit.io/p3u6ogh1n/tr:w-200,f-webp,quality-100/carousel-section/02655820-e466-4648-8caa-6a415a7d2dbf.png" alt="Larna House logo">
+      Frozen Larna Cake
+    </a>
+    <nav class="main-nav">
+      <a href="index.html#shop" data-i18n="nav_shop">Shop</a>
+      <a href="index.html#why" data-i18n="nav_about">About</a>
+      <a href="index.html#vending" data-i18n="nav_vending">Find a Machine</a>
+      <a href="index.html#faq" data-i18n="nav_faq">FAQ</a>
+      <a href="index.html#contact" data-i18n="nav_contact">Contact</a>
+    </nav>
+    <div class="lang-switch"></div>
+  </div>
+</header>
+
+<section style="padding:36px 0 70px;">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="index.html" data-i18n="back_home">← Back to Home</a>
+    </div>
+    <div class="detail-grid" id="detailRoot">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</section>
+
+<section style="background:var(--ice);">
+  <div class="container">
+    <h3 class="related-title section-title" data-i18n="related_title" style="margin-top:0;">More Flavors to Try</h3>
+    <div class="product-grid" id="relatedGrid"></div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <h5>Frozen Larna Cake</h5>
+      <p data-i18n="footer_about">Frozen Larna Cake by Larna House.</p>
+    </div>
+    <div>
+      <h5 data-i18n="footer_explore">Explore</h5>
+      <ul class="foot-links">
+        <li><a href="index.html#shop" data-i18n="nav_shop">Shop</a></li>
+        <li><a href="index.html#why" data-i18n="nav_about">About</a></li>
+        <li><a href="index.html#vending" data-i18n="nav_vending">Find a Machine</a></li>
+        <li><a href="index.html#faq" data-i18n="nav_faq">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5 data-i18n="footer_legal">Larna House</h5>
+      <ul class="foot-links">
+        <li>655 Soi Pattanakarn 61, Pravet, Bangkok 10250</li>
+        <li>Tel. 02-321-5995</li>
+        <li>foodcoveryco@gmail.com</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom" data-i18n="footer_rights">© 2026 Frozen Larna Cake</div>
+</footer>
+
+<script src="js/products.js"></script>
+<script src="js/i18n.js"></script>
+<script>
+function getParam(name){
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function renderProductDetail(){
+  const id = getParam("id");
+  const p = getProduct(id) || PRODUCTS[0];
+  document.getElementById("pageTitle").textContent = p.name[currentLang] + " — Frozen Larna Cake";
+  document.getElementById("pageDesc").setAttribute("content", p.tag[currentLang]);
+
+  const images = [p.img, p.img2].filter(Boolean);
+  document.getElementById("detailRoot").innerHTML = `
+    <div class="detail-gallery">
+      <img id="mainImg" src="${images[0]}" alt="${p.name[currentLang]}">
+      ${images.length > 1 ? `<div class="detail-thumbs">
+        ${images.map((img,i) => `<img src="${img}" class="${i===0?'active':''}" onclick="switchImg(this,'${img}')" alt="${p.name[currentLang]}">`).join("")}
+      </div>` : ""}
+    </div>
+    <div>
+      <span class="pill">${p.badge[currentLang]}</span>
+      <h1 class="detail-name">${p.name[currentLang]}</h1>
+      <div class="detail-price">${p.price} THB</div>
+      <p style="color:var(--muted);font-size:16px;">${p.tag[currentLang]}</p>
+      <div class="detail-meta">
+        <div class="mi">${t('detail_weight')}: ${p.weight}</div>
+        <div class="mi">${t('detail_box')}: ${p.box}</div>
+      </div>
+      <p class="detail-desc">${p.desc[currentLang]}</p>
+      <h4 style="color:var(--choco-dark);margin-top:24px;">${t('detail_serving')}</h4>
+      <p class="detail-desc">${p.serving[currentLang]}</p>
+      <div class="detail-actions">
+        <a href="http://line.me/ti/p/@larnahouse" target="_blank" class="btn btn-line">${t('detail_line')}</a>
+        <a href="index.html#vending" class="btn btn-outline">${t('detail_buy')}</a>
+      </div>
+    </div>
+  `;
+}
+
+function switchImg(el, src){
+  document.getElementById("mainImg").src = src;
+  document.querySelectorAll(".detail-thumbs img").forEach(i => i.classList.remove("active"));
+  el.classList.add("active");
+}
+
+function renderRelated(){
+  const id = getParam("id");
+  const others = PRODUCTS.filter(p => p.id !== id).slice(0, 4);
+  document.getElementById("relatedGrid").innerHTML = others.map(p => `
+    <a class="product-card" href="product.html?id=${p.id}">
+      <div class="thumb"><img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy"></div>
+      <div class="pc-body">
+        <span class="pill">${p.badge[currentLang]}</span>
+        <div class="pc-name">${p.name[currentLang]}</div>
+        <div class="pc-tag">${p.tag[currentLang]}</div>
+        <div class="pc-bottom">
+          <div class="pc-price">${p.price} THB</div>
+          <span class="btn btn-outline btn-sm">${t('view_detail')}</span>
+        </div>
+      </div>
+    </a>
+  `).join("");
+}
+
+renderProductDetail();
+renderRelated();
+</script>
+</body>
+</html>
