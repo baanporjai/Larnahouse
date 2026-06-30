@@ -9,6 +9,7 @@ const I18N = {
   nav_faq:         { th: "คำถามที่พบบ่อย", en: "FAQ", zh: "常见问题", ko: "자주 묻는 질문" },
   nav_vending:     { th: "หาตู้ใกล้คุณ", en: "Find a Machine", zh: "查找售货机", ko: "자판기 찾기" },
   nav_contact:     { th: "ติดต่อเรา", en: "Contact", zh: "联系我们", ko: "문의하기" },
+  nav_order:       { th: "สั่งซื้อ", en: "Order", zh: "立即订购", ko: "주문하기" },
 
   hero_award:      { th: "ผู้ชนะ Popular Vote · Innovative House Awards 2020", en: "Popular Vote Winner · Innovative House Awards 2020", zh: "Innovative House Awards 2020 人气大奖", ko: "Innovative House Awards 2020 인기상 수상" },
   hero_award2:     { th: "รางวัล Superior Taste Award 2024 · 3 ดาว", en: "Superior Taste Award 2024 · 3-Star", zh: "2024年Superior Taste Award · 三星", ko: "2024 Superior Taste Award · 3스타" },
@@ -40,7 +41,8 @@ const I18N = {
   view_detail:     { th: "ดูรายละเอียด", en: "View Details", zh: "查看详情", ko: "자세히 보기" },
 
   why_eyebrow:     { th: "ทำไมต้อง Frozen Larna", en: "Why Frozen Larna", zh: "为什么选择 Frozen Larna", ko: "왜 Frozen Larna인가" },
-  why_title:       { th: "ไม่ต้องเลือกระหว่างความอร่อยกับอายุการเก็บ", en: "You Shouldn't Have to Choose Between Taste & Shelf Life.", zh: "美味与保鲜，不必只能选一个。", ko: "맛과 보관 기간, 둘 다 포기하지 마세요." },
+  why_title_l1:    { th: "ไม่ต้องเลือกระหว่าง", en: "You Shouldn't Have to Choose Between", zh: "美味与保鲜，", ko: "맛과 보관 기간," },
+  why_title_l2:    { th: "ความอร่อย กับ อายุการเก็บ", en: "Taste & Shelf Life.", zh: "不必只能选一个。", ko: "둘 다 포기하지 마세요." },
   why_sub:         { th: "Frozen Larna Cake มอบทั้งสองอย่างให้คุณ ในกระปุกเดียว", en: "Frozen Larna Cake gives you both — in one perfect little tin.", zh: "Frozen Larna Cake 让你两者兼得——一个小铁盒装下所有美味。", ko: "Frozen Larna Cake는 작은 틴 케이스 하나에 두 가지를 모두 담았습니다." },
   feat1_h:         { th: "เก็บแช่แข็งได้นาน 12 เดือน", en: "12-Month Frozen Shelf Life", zh: "12个月冷冻保鲜期", ko: "12개월 냉동 보관" },
   feat1_p:         { th: "เทคโนโลยีถนอมอาหารตามธรรมชาติ ไม่ใส่วัตถุกันเสีย ยังคงนุ่มฟัดจ์เหมือนเพิ่งทำใหม่", en: "Natural preservation technology. No preservatives. Still soft and fudgy straight from the freezer.", zh: "天然保鲜技术，不含防腐剂，从冷冻库取出依然柔软绵密。", ko: "천연 보존 기술로 보존제 없이도 냉동고에서 꺼내자마자 부드럽고 퍼지한 식감을 유지합니다." },
@@ -67,10 +69,10 @@ const I18N = {
   howto_eyebrow:   { th: "นวัตกรรมที่ทำให้เราแตกต่าง", en: "An Innovation in Every Bite", zh: "我们的独家创新", ko: "한입에 담긴 혁신" },
   howto_title:     { th: "ทานได้ 2 สไตล์ จากเค้กกระปุกเดียว", en: "Two Ways to Enjoy. One Tiny Tin.", zh: "一罐两种吃法", ko: "하나의 케이크, 두 가지 즐기는 방법" },
   howto_sub:       { th: "ไม่ต้องอุ่น ไม่ต้องเตรียมอะไรเลย แค่หยิบจากตู้แช่แข็งแล้วเลือกสไตล์ที่ใช่สำหรับคุณ", en: "No heating, no prep — just grab it from the freezer and pick the style that suits you.", zh: "无需加热，无需准备——直接从冷冻柜取出，选择你喜欢的吃法。", ko: "데울 필요도, 준비할 필요도 없습니다 — 냉동고에서 꺼내 원하는 스타일을 선택하세요." },
-  howto1_h:        { th: "หยิบจากช่องแช่แข็ง", en: "Grab It Frozen", zh: "从冷冻柜取出", ko: "냉동고에서 바로 꺼내기" },
-  howto1_p:        { th: "หยิบจากตู้ vending machine หรือช่องแช่แข็งได้ทันที ไม่ต้องรอละลายล่วงหน้า", en: "Take it straight from the vending machine or freezer — no advance thawing required.", zh: "可直接从自助售货机或冷冻柜取出，无需提前解冻。", ko: "자판기 또는 냉동고에서 바로 꺼낼 수 있으며, 미리 해동할 필요가 없습니다." },
-  howto2_h:        { th: "เลือกสไตล์ที่ใช่", en: "Pick Your Style", zh: "选择你的吃法", ko: "원하는 스타일 선택" },
-  howto2_p:        { th: "ทานทันทีแบบไอศกรีมเค้ก เนื้อเย็นเด้ง หรือรอละลาย 15–30 นาทีเพื่อเนื้อนุ่มฟัดจ์แบบเค้กสด สลับสไตล์ได้ตามใจในกระปุกเดียว", en: "Eat it straight from frozen — cool and chewy like ice cream cake — or let it sit for 15–30 minutes for a soft, fudgy, freshly-baked texture. Two textures, one tin.", zh: "可直接冷冻享用，口感清凉有弹性，如冰淇淋蛋糕；也可静置15–30分钟，享受绵密如新鲜出炉的口感。一罐两种风味。", ko: "냉동 상태로 바로 먹으면 아이스크림 케이크처럼 시원하고 쫄깃하며, 15~30분 두면 갓 구운 듯한 부드러운 퍼지 식감을 즐길 수 있습니다. 하나의 틴에 두 가지 식감." },
+  howto1_h:        { th: "ทานแบบไอศกรีมเค้ก", en: "Eat It Like Ice Cream Cake", zh: "冰淇淋蛋糕风味", ko: "아이스크림 케이크처럼" },
+  howto1_p_t:      { th: "นำออกจากช่องแช่แข็ง วางพักที่อุณหภูมิห้อง 5–10 นาที สัมผัสจะคล้ายไอศกรีมเค้ก", en: "Take it from the freezer and rest at room temperature 5–10 min for an ice-cream-cake texture.", zh: "从冷冻室取出，室温静置5–10分钟，口感如冰淇淋蛋糕。", ko: "냉동실에서 꺼내 실온에서 5~10분 두면 아이스크림 케이크 같은 식감이 됩니다." },
+  howto2_h:        { th: "ทานแบบเค้กหน้านิ่ม", en: "Eat It Soft", zh: "绵密蛋糕风味", ko: "부드러운 케이크처럼" },
+  howto2_p_t:      { th: "ย้ายจากช่องแข็งไปช่องเย็นธรรมดาค้างคืน แล้วพักที่อุณหภูมิห้องประมาณ 5 นาที จะได้เนื้อนุ่ม ละลายในปากแบบต้นตำรับ", en: "Move from freezer to regular fridge overnight, then rest at room temperature about 5 min for the original soft, melt-in-your-mouth texture.", zh: "从冷冻室移至冷藏室隔夜，再于室温静置约5分钟，即可呈现原版绵密、入口即化的口感。", ko: "냉동실에서 일반 냉장실로 옮겨 하룻밤 두었다가, 실온에서 약 5분 두면 부드럽고 입에서 녹는 본연의 식감을 즐길 수 있습니다." },
   howto3_h:        { th: "พร้อมทาน ไม่ต้องเตรียมอะไร", en: "Ready to Eat. Zero Prep.", zh: "即开即食，无需准备", ko: "준비 없이 바로 즐기기" },
   howto3_p:        { th: "มีช้อนในตัวกระปุก เปิดแล้วทานได้เลย เหมาะกับทุกที่ ทุกเวลา ไม่ต้องมีจาน ไม่ต้องมีช้อนแยก", en: "Comes with a spoon already inside the tin — just open and eat. Perfect anywhere, anytime, with no plate or extra utensils needed.", zh: "罐内已附赠勺子，打开即可食用，随时随地享用，无需餐具或额外准备。", ko: "틴 안에 스푼이 들어 있어 열기만 하면 바로 드실 수 있습니다. 그릇이나 별도 도구 없이 언제 어디서나 즐기세요." },
 
@@ -151,7 +153,44 @@ const I18N = {
   care2_li1_t:     { th: "— นำออกจากช่องแข็ง วางพักที่อุณหภูมิห้อง 5–10 นาที สัมผัสคล้ายไอศกรีมเค้ก", en: "— take it from the freezer and rest at room temperature 5–10 min for an ice-cream-cake texture.", zh: "— 从冷冻室取出，室温静置5–10分钟，口感如冰淇淋蛋糕。", ko: "— 냉동실에서 꺼내 실온에서 5~10분 두면 아이스크림 케이크 같은 식감이 됩니다." },
   care2_li2_b:     { th: "แบบนุ่มละมุน", en: "Soft Style", zh: "绵密口感", ko: "부드러운 스타일" },
   care2_li2_t:     { th: "— ย้ายจากช่องแข็งไปช่องเย็นธรรมดาค้างคืน แล้วพักที่อุณหภูมิห้องอีก 5 นาที จะได้เนื้อนุ่ม ละลายในปากแบบต้นตำรับ", en: "— move from freezer to regular fridge overnight, then rest at room temperature another 5 min for the original soft, melt-in-your-mouth texture.", zh: "— 从冷冻室移至冷藏室隔夜，再于室温静置5分钟，即可呈现原版绵密、入口即化的口感。", ko: "— 냉동실에서 일반 냉장실로 옮겨 하룻밤 두었다가, 실온에서 5분 더 두면 부드럽고 입에서 녹는 본연의 식감을 즐길 수 있습니다." },
-  care2_warn:      { th: "ไม่แนะนำอุ่นไมโครเวฟ เพราะหน้าช็อกโกแลตจะแยกตัวออกจากเนื้อเค้กค่ะ", en: "Microwaving is not recommended — the chocolate coating will separate from the cake.", zh: "不建议使用微波炉加热，否则巧克力外层会与蛋糕本体分离。", ko: "전자레인지 사용은 권장하지 않습니다 — 초콜릿 코팅이 케이크에서 분리될 수 있습니다." }
+  care2_warn:      { th: "ไม่แนะนำอุ่นไมโครเวฟ เพราะหน้าช็อกโกแลตจะแยกตัวออกจากเนื้อเค้กค่ะ", en: "Microwaving is not recommended — the chocolate coating will separate from the cake.", zh: "不建议使用微波炉加热，否则巧克力外层会与蛋糕本体分离。", ko: "전자레인지 사용은 권장하지 않습니다 — 초콜릿 코팅이 케이크에서 분리될 수 있습니다." },
+
+  /* ===== Order page ===== */
+  order_eyebrow:     { th: "สั่งซื้อออนไลน์", en: "Order Online", zh: "在线订购", ko: "온라인 주문" },
+  order_title:       { th: "สั่งเค้กที่ใช่ ให้ Larna House จัดส่งหรือนัดรับให้คุณ", en: "Order Your Favorites — We'll Deliver or Have Them Ready for Pickup", zh: "订购喜爱的口味，由Larna House为您配送或安排自取", ko: "원하는 케이크를 주문하면 Larna House가 배송 또는 픽업을 준비해 드립니다" },
+  order_sub:         { th: "เลือกสินค้าและจำนวนที่ต้องการ จากนั้นแจ้งคำสั่งซื้อผ่าน LINE หรืออีเมล ทางร้านจะติดต่อยืนยันการจัดส่งหรือนัดรับอีกครั้ง", en: "Pick the flavors and quantities you want, then send your order via LINE or email. We'll follow up to confirm delivery or pickup.", zh: "选择您想要的口味和数量，然后通过LINE或电子邮件发送订单。我们会与您联系确认配送或自取详情。", ko: "원하는 맛과 수량을 선택한 뒤 LINE 또는 이메일로 주문을 보내주세요. 배송 또는 픽업 일정은 저희가 다시 연락드려 확인해 드립니다." },
+  order_note_vending:{ th: "💡 ตู้ vending machine ที่เซ็นทรัล เฟสติวัล เชียงใหม่ รองรับเฉพาะซื้อหน้าตู้สแกน QR เท่านั้น ไม่รองรับสั่งล่วงหน้า หากต้องการสั่งล่วงหน้า กรุณาใช้หน้านี้", en: "💡 The vending machine at Central Festival Chiang Mai is walk-up only (scan QR to pay) and doesn't take pre-orders. Use this page to pre-order instead.", zh: "💡 清迈Central Festival的自助售货机仅支持现场扫码购买，不支持预订。如需预订，请使用本页面。", ko: "💡 센트럴 페스티벌 치앙마이의 자판기는 현장에서 QR 결제로만 구매 가능하며 사전 주문은 받지 않습니다. 사전 주문은 이 페이지를 이용해 주세요." },
+
+  order_pick_title:  { th: "1. เลือกสินค้า", en: "1. Choose Your Cakes", zh: "1. 选择您的蛋糕", ko: "1. 케이크 선택" },
+  order_qty:         { th: "จำนวน", en: "Qty", zh: "数量", ko: "수량" },
+
+  order_cart_title:  { th: "ตะกร้าสินค้าของคุณ", en: "Your Order", zh: "您的订单", ko: "주문 내역" },
+  order_cart_empty:  { th: "ยังไม่มีสินค้าในตะกร้า เลือกรสชาติที่ชอบได้เลยค่ะ", en: "Your cart is empty. Pick a few flavors to get started.", zh: "您的购物车是空的，快来选购喜欢的口味吧。", ko: "카트가 비어 있습니다. 원하는 맛을 선택해 보세요." },
+  order_subtotal:    { th: "ยอดรวม", en: "Total", zh: "总计", ko: "총액" },
+
+  order_fulfill_title:  { th: "2. จัดส่ง", en: "2. Delivery", zh: "2. 配送", ko: "2. 배송" },
+  order_fulfill_note:  { th: "* ทางร้านจะติดต่อนัดวันและเวลาที่แน่นอนอีกครั้งหลังได้รับคำสั่งซื้อ", en: "* We'll contact you to confirm the exact date and time after receiving your order.", zh: "* 收到订单后，我们会与您联系确认具体的日期和时间。", ko: "* 주문을 받은 후 정확한 날짜와 시간을 확인하기 위해 연락드립니다." },
+
+  order_form_title:  { th: "3. ข้อมูลผู้สั่งซื้อ", en: "3. Your Details", zh: "3. 订购人信息", ko: "3. 주문자 정보" },
+  order_form_name:   { th: "ชื่อ-นามสกุล", en: "Full Name", zh: "姓名", ko: "성명" },
+  order_form_phone:  { th: "เบอร์โทรศัพท์", en: "Phone Number", zh: "电话号码", ko: "전화번호" },
+  order_form_address:{ th: "ที่อยู่จัดส่ง", en: "Delivery Address", zh: "配送地址", ko: "배송 주소" },
+  order_form_date:   { th: "วันที่ต้องการ (ถ้ามี)", en: "Preferred Date (optional)", zh: "期望日期（可选）", ko: "희망 날짜 (선택)" },
+  order_form_note:   { th: "หมายเหตุเพิ่มเติม (ถ้ามี)", en: "Additional Notes (optional)", zh: "备注（可选）", ko: "추가 메모 (선택)" },
+
+  order_submit_title:{ th: "4. ส่งคำสั่งซื้อ", en: "4. Send Your Order", zh: "4. 提交订单", ko: "4. 주문 보내기" },
+  order_submit_btn:  { th: "✅ ส่งคำสั่งซื้อ", en: "✅ Submit Order", zh: "✅ 提交订单", ko: "✅ 주문 보내기" },
+  order_sending:     { th: "กำลังส่ง...", en: "Sending...", zh: "发送中...", ko: "전송 중..." },
+  order_err_fail:    { th: "เกิดข้อผิดพลาด กรุณาลองใหม่ หรือทักแชท LINE @baanporjai", en: "Something went wrong. Please try again, or message us on LINE @baanporjai.", zh: "出现错误，请重试，或通过LINE @baanporjai联系我们。", ko: "오류가 발생했습니다. 다시 시도하거나 LINE @baanporjai로 문의해 주세요." },
+  order_or_contact:  { th: "หรือติดต่อโดยตรง:", en: "Or contact us directly:", zh: "或直接联系我们：", ko: "또는 직접 문의하기:" },
+  order_line_btn:    { th: "💬 แชททาง LINE", en: "💬 Chat on LINE", zh: "💬 通过LINE聊天", ko: "💬 LINE으로 문의하기" },
+  order_validation_cart:   { th: "กรุณาเลือกสินค้าอย่างน้อย 1 รายการ", en: "Please choose at least one item.", zh: "请至少选择一项商品。", ko: "최소 1개 이상의 상품을 선택해 주세요." },
+  order_validation_info:   { th: "กรุณากรอกชื่อและเบอร์โทรศัพท์", en: "Please enter your name and phone number.", zh: "请填写姓名和电话号码。", ko: "이름과 전화번호를 입력해 주세요." },
+  order_validation_address:{ th: "กรุณากรอกที่อยู่จัดส่ง", en: "Please enter a delivery address.", zh: "请填写配送地址。", ko: "배송 주소를 입력해 주세요." },
+
+  order_success_title:{ th: "ส่งคำสั่งซื้อสำเร็จ! 🎉", en: "Order Sent! 🎉", zh: "订单已送出！🎉", ko: "주문이 전송되었습니다! 🎉" },
+  order_success_msg:  { th: "ทีมงาน Larna House ได้รับคำสั่งซื้อของคุณแล้ว จะติดต่อกลับเพื่อยืนยันการจัดส่งภายใน 24 ชั่วโมงค่ะ", en: "Larna House has received your order and will contact you to confirm delivery within 24 hours.", zh: "Larna House已收到您的订单，将在24小时内与您联系以确认配送事宜。", ko: "Larna House가 주문을 받았습니다. 24시간 내에 배송 확인을 위해 연락드리겠습니다." },
+  order_new_btn:      { th: "🔁 สั่งซื้ออีกครั้ง", en: "🔁 Place Another Order", zh: "🔁 再下一单", ko: "🔁 새 주문하기" }
 };
 
 let currentLang = localStorage.getItem("larna_lang") || "th";
@@ -170,7 +209,7 @@ function applyI18n(){
   document.querySelectorAll(".lang-switch button").forEach(btn => {
     btn.classList.toggle("active", btn.getAttribute("data-lang") === currentLang);
   });
-  ["renderProductGrid", "renderNutrition", "renderProductDetail", "renderRelated"].forEach(fnName => {
+  ["renderProductGrid", "renderNutrition", "renderProductDetail", "renderRelated", "renderOrderPicker", "renderCart"].forEach(fnName => {
     if (typeof window[fnName] === "function") window[fnName]();
   });
 }
