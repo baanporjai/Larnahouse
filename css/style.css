@@ -1,4 +1,6 @@
 /* ===== Frozen Larna Cake — Vending Edition ===== */
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 :root{
   --choco-dark:#2b1810;
   --choco:#4a2c1d;
@@ -21,7 +23,7 @@
 html{scroll-behavior:smooth;}
 body{
   margin:0;
-  font-family:"Noto Sans Thai","Noto Sans SC","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-family:"Prompt","Inter","Noto Sans SC","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   color:var(--text);
   background:var(--cream);
   line-height:1.6;
@@ -90,10 +92,11 @@ nav.main-nav a:hover{color:var(--frost);}
   padding:60px 0 40px;
 }
 .hero-inner{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;}
+.hero-badges{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
 .badge-award{
   display:inline-flex;align-items:center;gap:8px;background:#fff;border-radius:999px;
   padding:8px 16px;font-size:13px;font-weight:700;box-shadow:var(--shadow-sm);color:var(--choco);
-  margin-bottom:18px;
+  margin-bottom:0;
 }
 .hero h1{font-size:clamp(34px,5vw,56px);font-weight:900;color:var(--choco-dark);}
 .hero h1 em{font-style:normal;color:var(--frost);}
@@ -113,6 +116,28 @@ nav.main-nav a:hover{color:var(--frost);}
   font-size:14px;font-weight:600;text-align:center;
 }
 .vending-strip span{color:var(--gold);}
+
+/* ===== Awards ===== */
+.awards-section{background:var(--choco-dark);padding:64px 0;}
+.awards-section .eyebrow{color:var(--gold);}
+.awards-section .section-title{color:#fff;}
+.awards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:40px;max-width:1080px;margin-left:auto;margin-right:auto;}
+.award-card{
+  background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:var(--radius);
+  padding:34px 28px;text-align:center;position:relative;
+}
+.award-card-gold{
+  background:linear-gradient(160deg,rgba(212,166,74,0.18),rgba(255,255,255,0.05));
+  border-color:rgba(212,166,74,0.45);
+}
+.award-ribbon{font-size:42px;margin-bottom:10px;}
+.award-year{
+  display:inline-block;font-size:13px;font-weight:800;letter-spacing:.08em;
+  color:var(--gold);background:rgba(212,166,74,0.15);border-radius:999px;
+  padding:4px 14px;margin-bottom:14px;
+}
+.award-card h3{color:#fff;font-size:21px;margin-bottom:8px;}
+.award-card p{color:#cdbba9;font-size:14px;margin:0;line-height:1.6;}
 
 /* ===== Product grid ===== */
 .product-grid{
@@ -138,6 +163,22 @@ nav.main-nav a:hover{color:var(--frost);}
 .feature-card .icon{font-size:30px;margin-bottom:14px;}
 .feature-card h4{font-size:17px;color:var(--choco-dark);}
 .feature-card p{font-size:14px;color:var(--muted);margin:0;}
+
+/* ===== How to Eat ===== */
+.howto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:44px;}
+.howto-step{
+  background:#fff;border-radius:var(--radius);padding:32px 26px;text-align:center;
+  box-shadow:var(--shadow-sm);position:relative;
+}
+.howto-num{
+  position:absolute;top:-16px;left:50%;transform:translateX(-50%);
+  width:32px;height:32px;border-radius:50%;background:var(--choco-dark);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;
+  box-shadow:var(--shadow-sm);
+}
+.howto-icon{font-size:38px;margin:10px 0 14px;}
+.howto-step h4{font-size:17px;color:var(--choco-dark);margin-bottom:8px;}
+.howto-step p{font-size:14px;color:var(--muted);margin:0;line-height:1.6;}
 
 /* ===== Nutrition table ===== */
 .table-wrap{overflow-x:auto;margin-top:30px;border-radius:var(--radius);box-shadow:var(--shadow-sm);}
@@ -215,6 +256,8 @@ footer .foot-links li{margin-bottom:8px;}
   .hero-inner,.story-inner,.detail-grid,.vending-cta{grid-template-columns:1fr;}
   .product-grid{grid-template-columns:repeat(2,1fr);}
   .features-grid{grid-template-columns:repeat(2,1fr);}
+  .awards-grid{grid-template-columns:1fr;}
+  .howto-grid{grid-template-columns:1fr;}
   .review-grid,.gift-grid,.footer-grid{grid-template-columns:1fr;}
   nav.main-nav{display:none;}
 }
