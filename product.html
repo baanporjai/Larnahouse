@@ -22,6 +22,7 @@
       <a href="index.html#vending" data-i18n="nav_vending">Find a Machine</a>
       <a href="index.html#faq" data-i18n="nav_faq">FAQ</a>
       <a href="index.html#contact" data-i18n="nav_contact">Contact</a>
+      <a href="order.html" class="btn btn-primary btn-sm" data-i18n="nav_order">Order</a>
     </nav>
     <div class="lang-switch"></div>
   </div>
@@ -87,6 +88,7 @@
         <li><a href="index.html#why" data-i18n="nav_about">About</a></li>
         <li><a href="index.html#vending" data-i18n="nav_vending">Find a Machine</a></li>
         <li><a href="index.html#faq" data-i18n="nav_faq">FAQ</a></li>
+        <li><a href="order.html" data-i18n="nav_order">Order</a></li>
       </ul>
     </div>
     <div>
@@ -134,7 +136,8 @@ function renderProductDetail(){
       <h4 style="color:var(--choco-dark);margin-top:24px;">${t('detail_serving')}</h4>
       <p class="detail-desc">${p.serving[currentLang]}</p>
       <div class="detail-actions">
-        <a href="http://line.me/ti/p/@baanporjai" target="_blank" class="btn btn-line">${t('detail_line')}</a>
+        <a href="order.html?id=${p.id}" class="btn btn-primary">${t('nav_order')}</a>
+        <a href="https://lin.ee/Qlxm0tW" target="_blank" class="btn btn-line">${t('detail_line')}</a>
         <a href="index.html#vending" class="btn btn-outline">${t('detail_buy')}</a>
       </div>
     </div>

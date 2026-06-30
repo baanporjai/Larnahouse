@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order — Frozen Larna Cake</title>
+<meta name="description" content="Order Frozen Larna Cake online — choose your flavors, then send your order via LINE or email for delivery or pickup at Larna House.">
+<link rel="icon" href="favicon.gif" type="image/gif">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="index.html" class="brand">
+      <img src="https://ik.imagekit.io/p3u6ogh1n/tr:w-200,f-webp,quality-100/carousel-section/02655820-e466-4648-8caa-6a415a7d2dbf.png" alt="Larna House logo">
+      Frozen Larna Cake
+    </a>
+    <nav class="main-nav">
+      <a href="index.html#shop" data-i18n="nav_shop">Shop</a>
+      <a href="index.html#why" data-i18n="nav_about">About</a>
+      <a href="index.html#vending" data-i18n="nav_vending">Find a Machine</a>
+      <a href="index.html#faq" data-i18n="nav_faq">FAQ</a>
+      <a href="index.html#contact" data-i18n="nav_contact">Contact</a>
+    </nav>
+    <div class="lang-switch"></div>
+  </div>
+</header>
+
+<section style="padding:36px 0 70px;">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="index.html" data-i18n="back_home">← Back to Home</a>
+    </div>
+
+    <div class="center" style="max-width:720px;margin-bottom:8px;">
+      <div class="eyebrow" data-i18n="order_eyebrow">Order Online</div>
+      <h1 class="section-title" data-i18n="order_title">Order Your Favorites</h1>
+      <p class="section-sub" style="margin:14px auto 0;" data-i18n="order_sub">Pick the flavors and quantities you want.</p>
+    </div>
+
+    <div class="order-note-box" style="max-width:720px;margin:24px auto 0;">
+      <span>💡</span><span data-i18n="order_note_vending" style="display:block;">The vending machine doesn't take pre-orders. Use this page to pre-order instead.</span>
+    </div>
+
+    <div class="order-layout">
+      <div>
+        <h3 class="section-title" style="font-size:21px;margin-top:40px;" data-i18n="order_pick_title">1. Choose Your Cakes</h3>
+        <div class="order-grid" id="orderGrid"></div>
+      </div>
+
+      <div class="cart-panel">
+        <h3 data-i18n="order_cart_title">Your Order</h3>
+        <div id="cartBody"></div>
+
+        <h4 data-i18n="order_fulfill_title">2. Delivery</h4>
+        <p class="order-hint" data-i18n="order_fulfill_note">* We'll contact you to confirm date and time.</p>
+
+        <h4 data-i18n="order_form_title">3. Your Details</h4>
+        <form class="order-form" id="orderForm" onsubmit="return false;">
+          <div class="field">
+            <label data-i18n="order_form_name">Full Name</label>
+            <input type="text" id="custName">
+          </div>
+          <div class="field">
+            <label data-i18n="order_form_phone">Phone Number</label>
+            <input type="tel" id="custPhone">
+          </div>
+          <div class="field" id="addressField">
+            <label data-i18n="order_form_address">Delivery Address</label>
+            <textarea id="custAddress" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label data-i18n="order_form_date">Preferred Date (optional)</label>
+            <input type="date" id="custDate">
+          </div>
+          <div class="field">
+            <label data-i18n="order_form_note">Additional Notes (optional)</label>
+            <textarea id="custNote" rows="2"></textarea>
+          </div>
+        </form>
+
+        <h4 data-i18n="order_submit_title">4. Send Your Order</h4>
+        <div id="orderFormStage">
+          <div class="order-actions">
+            <button type="button" class="btn btn-primary" id="submitBtn" onclick="submitOrder(event)">
+              <span data-i18n="order_submit_btn">✅ Submit Order</span>
+            </button>
+          </div>
+          <p class="order-hint" id="orderErrHint" style="display:none;color:#c0392b;"></p>
+
+          <div class="order-alt-contact">
+            <p class="order-hint" data-i18n="order_or_contact">Or contact us directly:</p>
+            <div class="order-actions">
+              <a href="https://lin.ee/Qlxm0tW" target="_blank" class="btn btn-line btn-sm">
+                <span data-i18n="order_line_btn">💬 Chat on LINE</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div id="orderSuccessStage" class="success-card" style="display:none;">
+          <div class="success-icon">🎉</div>
+          <h3 data-i18n="order_success_title">Order Sent!</h3>
+          <p data-i18n="order_success_msg">Larna House has received your order and will contact you to confirm delivery or pickup within 24 hours.</p>
+          <div class="success-summary" id="successSummary"></div>
+          <button type="button" class="btn btn-outline" onclick="resetOrderForm()">
+            <span data-i18n="order_new_btn">🔁 Place Another Order</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <h5>Frozen Larna Cake</h5>
+      <p data-i18n="footer_about">Frozen Larna Cake by Larna House.</p>
+    </div>
+    <div>
+      <h5 data-i18n="footer_explore">Explore</h5>
+      <ul class="foot-links">
+        <li><a href="index.html#shop" data-i18n="nav_shop">Shop</a></li>
+        <li><a href="index.html#why" data-i18n="nav_about">About</a></li>
+        <li><a href="index.html#vending" data-i18n="nav_vending">Find a Machine</a></li>
+        <li><a href="index.html#faq" data-i18n="nav_faq">FAQ</a></li>
+        <li><a href="order.html" data-i18n="nav_order">Order</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5 data-i18n="footer_legal">Larna House</h5>
+      <ul class="foot-links">
+        <li>Tel. 087-986-7000</li>
+        <li>order@baanporjai.com</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom" data-i18n="footer_rights">© 2026 Frozen Larna Cake</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/products.js"></script>
+<script src="js/i18n.js"></script>
+<script>
+const CART_KEY = "larna_cart";
+// ⚠️ Replace with your deployed Cloudflare Worker URL — see LINE-ORDER-BACKEND-SETUP.md
+const API_URL = "https://larnaapi.yai-taweewoot.workers.dev/api/order";
+
+function getParam(name){
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function getCart(){
+  try { return JSON.parse(localStorage.getItem(CART_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+
+function saveCart(cart){
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+
+function changeQty(id, delta){
+  const cart = getCart();
+  const next = Math.max(0, (cart[id] || 0) + delta);
+  if (next === 0) delete cart[id];
+  else cart[id] = next;
+  saveCart(cart);
+  renderOrderPicker();
+  renderCart();
+}
+
+// Preselect a product if arriving from product.html?id=...
+(function preselect(){
+  const id = getParam("id");
+  if (!id) return;
+  const cart = getCart();
+  if (!cart[id]) {
+    cart[id] = 1;
+    saveCart(cart);
+  }
+})();
+
+function renderOrderPicker(){
+  const grid = document.getElementById("orderGrid");
+  const cart = getCart();
+  grid.innerHTML = PRODUCTS.map(p => {
+    const qty = cart[p.id] || 0;
+    return `
+    <div class="order-card ${qty > 0 ? 'in-cart' : ''}">
+      <div class="thumb"><img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy"></div>
+      <div class="oc-body">
+        <span class="pill">${p.badge[currentLang]}</span>
+        <div class="oc-name">${p.name[currentLang]}</div>
+        <div class="oc-bottom">
+          <div class="oc-price">${p.price} THB</div>
+          <div class="qty-stepper">
+            <button onclick="changeQty('${p.id}',-1)" ${qty === 0 ? 'disabled' : ''}>−</button>
+            <span>${qty}</span>
+            <button onclick="changeQty('${p.id}',1)">+</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderCart(){
+  const cart = getCart();
+  const ids = Object.keys(cart).filter(id => cart[id] > 0);
+  const body = document.getElementById("cartBody");
+  if (ids.length === 0) {
+    body.innerHTML = `<div class="cart-empty">${t('order_cart_empty')}</div>`;
+    return;
+  }
+  let total = 0;
+  const rows = ids.map(id => {
+    const p = getProduct(id);
+    if (!p) return "";
+    const qty = cart[id];
+    const lineTotal = p.price * qty;
+    total += lineTotal;
+    return `
+      <div class="cart-item">
+        <div>
+          <span class="ci-name">${p.name[currentLang]}</span>
+          <span class="ci-meta">${t('order_qty')}: ${qty} × ${p.price} THB</span>
+        </div>
+        <div class="ci-price">${lineTotal} THB</div>
+      </div>`;
+  }).join("");
+  body.innerHTML = `
+    <div class="cart-list">${rows}</div>
+    <div class="cart-total"><span>${t('order_subtotal')}</span><span>${total} THB</span></div>
+  `;
+}
+
+function getCartLines(){
+  const cart = getCart();
+  return Object.keys(cart).filter(id => cart[id] > 0).map(id => {
+    const p = getProduct(id);
+    return p ? { p, qty: cart[id] } : null;
+  }).filter(Boolean);
+}
+
+function validateOrder(){
+  const lines = getCartLines();
+  if (lines.length === 0) {
+    alert(t('order_validation_cart'));
+    return false;
+  }
+  const name = document.getElementById("custName").value.trim();
+  const phone = document.getElementById("custPhone").value.trim();
+  if (!name || !phone) {
+    alert(t('order_validation_info'));
+    return false;
+  }
+  if (!document.getElementById("custAddress").value.trim()) {
+    alert(t('order_validation_address'));
+    return false;
+  }
+  return true;
+}
+
+function showToast(msg){
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2400);
+}
+
+function buildOrderPayload(){
+  const lines = getCartLines();
+  const items = lines.map(({p, qty}) => ({ name: p.name[currentLang], qty, price: p.price }));
+  const total = lines.reduce((sum, {p, qty}) => sum + p.price * qty, 0);
+  return {
+    lang: currentLang,
+    items,
+    total,
+    fulfillment: "delivery",
+    name: document.getElementById("custName").value.trim(),
+    phone: document.getElementById("custPhone").value.trim(),
+    address: document.getElementById("custAddress").value.trim(),
+    date: document.getElementById("custDate").value,
+    note: document.getElementById("custNote").value.trim(),
+  };
+}
+
+async function submitOrder(e){
+  e.preventDefault();
+  if (!validateOrder()) return;
+
+  const errHint = document.getElementById("orderErrHint");
+  errHint.style.display = "none";
+
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  const originalLabel = submitBtn.innerHTML;
+  submitBtn.innerHTML = `<span>${t('order_sending')}</span>`;
+
+  const payload = buildOrderPayload();
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("API error");
+    showSuccess(payload);
+  } catch (err) {
+    errHint.textContent = t('order_err_fail');
+    errHint.style.display = "";
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalLabel;
+  }
+}
+
+function showSuccess(payload){
+  document.getElementById("orderFormStage").style.display = "none";
+  const successStage = document.getElementById("orderSuccessStage");
+  const rows = payload.items.map(it =>
+    `<div class="cart-item"><span class="ci-name">${it.name} x${it.qty}</span><span class="ci-price">${it.price * it.qty} THB</span></div>`
+  ).join("");
+  document.getElementById("successSummary").innerHTML = `
+    <div class="cart-list">${rows}</div>
+    <div class="cart-total"><span>${t('order_subtotal')}</span><span>${payload.total} THB</span></div>
+  `;
+  successStage.style.display = "";
+  successStage.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function resetOrderForm(){
+  saveCart({});
+  document.getElementById("custName").value = "";
+  document.getElementById("custPhone").value = "";
+  document.getElementById("custAddress").value = "";
+  document.getElementById("custDate").value = "";
+  document.getElementById("custNote").value = "";
+  document.getElementById("orderSuccessStage").style.display = "none";
+  document.getElementById("orderFormStage").style.display = "";
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = `<span data-i18n="order_submit_btn">${t('order_submit_btn')}</span>`;
+  renderOrderPicker();
+  renderCart();
+}
+
+renderOrderPicker();
+renderCart();
+</script>
+</body>
+</html>
