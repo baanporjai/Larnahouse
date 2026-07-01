@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://larnacake.baanporjai.com/sitemap.xml
