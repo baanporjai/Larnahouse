@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Frozen Larna Cake</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --choco-dark: #2B1810;
+    --choco: #5C3317;
+    --frost: #2A9FC9;
+    --cream: #FDF6EE;
+    --cream-2: #F0E6D6;
+    --gold: #D4A64A;
+    --green: #27ae60;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--cream); color: var(--choco-dark); min-height: 100vh; }
+
+  header {
+    background: var(--choco-dark);
+    color: #fff;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 17px; font-weight: 800; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  #lastUpdated { font-size: 12px; opacity: 0.5; }
+  .refresh-btn {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: #fff;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .refresh-btn:hover { background: rgba(255,255,255,0.22); }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* Stat cards */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 22px 24px;
+    box-shadow: 0 2px 12px rgba(43,24,16,0.07);
+  }
+  .stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--choco);
+    opacity: 0.5;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--choco-dark);
+    line-height: 1;
+  }
+  .stat-unit { font-size: 13px; font-weight: 400; opacity: 0.45; margin-top: 4px; }
+  .stat-card.highlight { background: var(--choco-dark); }
+  .stat-card.highlight .stat-label { color: #fff; }
+  .stat-card.highlight .stat-value { color: #fff; }
+  .stat-card.highlight .stat-unit { color: rgba(255,255,255,0.5); }
+
+  /* Charts */
+  .charts { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; margin-bottom: 24px; }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 22px 24px;
+    box-shadow: 0 2px 12px rgba(43,24,16,0.07);
+  }
+  .card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 18px;
+    color: var(--choco-dark);
+  }
+
+  /* Today list */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .section-header h3 { font-size: 14px; font-weight: 700; }
+  .count-badge {
+    background: var(--frost);
+    color: #fff;
+    border-radius: 999px;
+    padding: 2px 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .order-row {
+    border-bottom: 1px solid var(--cream-2);
+    padding: 14px 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 16px;
+    align-items: start;
+  }
+  .order-row:last-child { border-bottom: none; }
+  .order-name { font-weight: 700; font-size: 14px; }
+  .order-meta { font-size: 12px; color: var(--choco); opacity: 0.55; margin-top: 3px; }
+  .order-items { font-size: 13px; color: var(--choco); margin-top: 5px; }
+  .order-note { font-size: 12px; color: #888; margin-top: 3px; }
+  .order-total {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--choco-dark);
+    white-space: nowrap;
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--choco);
+    opacity: 0.35;
+    padding: 32px 0;
+    font-size: 14px;
+  }
+
+  .loading-state {
+    text-align: center;
+    padding: 80px 0;
+    color: var(--choco);
+    opacity: 0.4;
+    font-size: 15px;
+  }
+  .error-state {
+    background: #fff0f0;
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+    color: #c0392b;
+    font-size: 14px;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 680px) {
+    .charts { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 400px) {
+    .stats { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 Frozen Larna Cake — ยอดขาย</h1>
+  <div class="header-right">
+    <span id="lastUpdated">กำลังโหลด...</span>
+    <button class="refresh-btn" onclick="init()">🔄 รีเฟรช</button>
+  </div>
+</header>
+
+<div class="container">
+  <div id="content"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<script>
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwBwehAOVJUm4K5w9UQZTE9j70i6eP1zrv0vwIMLYzAoSvrLDMI7dTU6U_44T7YORZf/exec";
+
+let dailyChart, flavorChart;
+
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function parseTotal(str) {
+  return parseInt((str || "0").toString().replace(/[^0-9]/g, "")) || 0;
+}
+
+function parseItems(str) {
+  return (str || "").split(",").map(s => {
+    const m = s.trim().match(/^(.+?)\s*x(\d+)$/i);
+    if (!m) return null;
+    return { name: m[1].trim(), qty: parseInt(m[2]) };
+  }).filter(Boolean);
+}
+
+function isTodayOrder(o) {
+  const today = todayISO();
+  if (o.date && o.date !== "-" && String(o.date).slice(0, 10) === today) return true;
+  try {
+    const ts = new Date(o.timestamp);
+    return ts.toISOString().slice(0, 10) === today;
+  } catch(e) { return false; }
+}
+
+async function loadData() {
+  const res = await fetch(SHEETS_URL);
+  const json = await res.json();
+  return json.orders || [];
+}
+
+function render(orders) {
+  const today = todayISO();
+
+  // Summary stats
+  const totalRevenue = orders.reduce((s, o) => s + parseTotal(o.total), 0);
+  const totalOrders = orders.length;
+  const todayOrders = orders.filter(isTodayOrder);
+  const avgOrder = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+
+  // Flavor counts
+  const flavorMap = {};
+  orders.forEach(o => {
+    parseItems(o.items).forEach(({name, qty}) => {
+      flavorMap[name] = (flavorMap[name] || 0) + qty;
+    });
+  });
+  const flavors = Object.entries(flavorMap).sort((a,b) => b[1]-a[1]).slice(0, 7);
+
+  // Daily sales — last 14 days
+  const dailyMap = {};
+  orders.forEach(o => {
+    try {
+      const d = new Date(o.timestamp).toISOString().slice(0, 10);
+      dailyMap[d] = (dailyMap[d] || 0) + parseTotal(o.total);
+    } catch(e) {}
+  });
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    return d.toISOString().slice(0, 10);
+  });
+  const dailyLabels = days.map(d => {
+    const dt = new Date(d + "T00:00:00");
+    return dt.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  });
+  const dailyValues = days.map(d => dailyMap[d] || 0);
+
+  // Render HTML
+  document.getElementById("content").innerHTML = `
+    <div class="stats">
+      <div class="stat-card highlight">
+        <div class="stat-label">ยอดขายรวม</div>
+        <div class="stat-value">${totalRevenue.toLocaleString("th-TH")}</div>
+        <div class="stat-unit">THB</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">ออเดอร์ทั้งหมด</div>
+        <div class="stat-value">${totalOrders.toLocaleString()}</div>
+        <div class="stat-unit">รายการ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">วันนี้ต้องจัดส่ง</div>
+        <div class="stat-value">${todayOrders.length}</div>
+        <div class="stat-unit">ออเดอร์</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">เฉลี่ยต่อออเดอร์</div>
+        <div class="stat-value">${avgOrder.toLocaleString()}</div>
+        <div class="stat-unit">THB</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="card">
+        <h3>📈 ยอดขายรายวัน (14 วันล่าสุด)</h3>
+        <canvas id="dailyChart"></canvas>
+      </div>
+      <div class="card">
+        <h3>🏆 รสชาติขายดี</h3>
+        <canvas id="flavorChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <h3>🚚 รายการจัดส่งวันนี้</h3>
+        <span class="count-badge">${todayOrders.length} ออเดอร์</span>
+      </div>
+      ${todayOrders.length === 0
+        ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
+        : todayOrders.map(o => `
+          <div class="order-row">
+            <div>
+              <div class="order-name">${o.name || "-"}</div>
+              <div class="order-meta">📞 ${o.phone || "-"} &nbsp;·&nbsp; 📍 ${o.address || "-"}</div>
+              <div class="order-items">🛍 ${o.items || "-"}</div>
+              ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
+            </div>
+            <div class="order-total">${o.total}</div>
+          </div>`).join("")
+      }
+    </div>
+  `;
+
+  // Destroy old charts if re-rendering
+  if (dailyChart) dailyChart.destroy();
+  if (flavorChart) flavorChart.destroy();
+
+  dailyChart = new Chart(document.getElementById("dailyChart"), {
+    type: "bar",
+    data: {
+      labels: dailyLabels,
+      datasets: [{
+        label: "THB",
+        data: dailyValues,
+        backgroundColor: days.map(d => d === today ? "rgba(42,159,201,1)" : "rgba(42,159,201,0.5)"),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.raw.toLocaleString("th-TH")} THB` }
+      }},
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString("th-TH") } },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  flavorChart = new Chart(document.getElementById("flavorChart"), {
+    type: "bar",
+    data: {
+      labels: flavors.map(([name]) => name),
+      datasets: [{
+        data: flavors.map(([,qty]) => qty),
+        backgroundColor: "rgba(212,166,74,0.75)",
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { stepSize: 1 } },
+        y: { ticks: { font: { size: 12 } } }
+      }
+    }
+  });
+
+  const now = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("lastUpdated").textContent = `อัพเดต ${now} น.`;
+}
+
+let refreshTimer;
+async function init() {
+  clearTimeout(refreshTimer);
+  document.getElementById("lastUpdated").textContent = "กำลังโหลด...";
+  try {
+    const orders = await loadData();
+    render(orders);
+    // Auto-refresh every 5 min
+    refreshTimer = setTimeout(init, 5 * 60 * 1000);
+  } catch(e) {
+    document.getElementById("content").innerHTML = `
+      <div class="error-state">
+        โหลดข้อมูลไม่ได้ — ตรวจสอบว่า Apps Script deploy ถูกต้องและตั้งสิทธิ์เป็น <b>"ทุกคน"</b><br><br>
+        <button onclick="init()" style="margin-top:12px;padding:8px 20px;border-radius:8px;border:none;background:#c0392b;color:#fff;cursor:pointer;font-weight:700;">ลองใหม่</button>
+      </div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
