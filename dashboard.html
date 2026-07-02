@@ -391,6 +391,24 @@ function isTodayOrder(o) {
   return ts ? ts.toISOString().slice(0, 10) === today : false;
 }
 
+function getOrderDate(o) {
+  if (o.date && o.date !== "-") {
+    const d = parseTimestamp(o.date);
+    if (d) return d.toISOString().slice(0, 10);
+  }
+  const ts = parseTimestamp(o.timestamp);
+  return ts ? ts.toISOString().slice(0, 10) : null;
+}
+
+function isUpcomingOrder(o) {
+  const d = getOrderDate(o);
+  return d && d > todayISO() && o.status !== "ส่งแล้ว";
+}
+
+function formatDateTH(iso) {
+  return new Date(iso + "T12:00:00").toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" });
+}
+
 async function loadData() {
   const res = await fetch(SHEETS_URL);
   const json = await res.json();
@@ -410,6 +428,23 @@ function render(orders) {
   const totalOrders = orders.length;
   const todayOrders = orders.filter(isTodayOrder);
   const avgOrder = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
+
+  // Upcoming orders grouped by date
+  const upcomingOrders = orders.filter(isUpcomingOrder);
+  const upcomingByDate = {};
+  upcomingOrders.forEach(o => {
+    const d = getOrderDate(o);
+    if (!upcomingByDate[d]) upcomingByDate[d] = [];
+    upcomingByDate[d].push(o);
+  });
+  const upcomingHTML = Object.keys(upcomingByDate).sort().map(d => `
+    <div class="card" style="margin-top:20px;">
+      <div class="section-header">
+        <h3>📅 ${formatDateTH(d)}</h3>
+        <span class="count-badge">${upcomingByDate[d].length} ออเดอร์</span>
+      </div>
+      ${upcomingByDate[d].map(o => orderRowHTML(o)).join("")}
+    </div>`).join("") || "";
 
   // Flavor counts
   const flavorMap = {};
@@ -485,6 +520,8 @@ function render(orders) {
         : todayOrders.map(o => orderRowHTML(o)).join("")
       }
     </div>
+
+    ${upcomingHTML}
   `;
 
   // Destroy old charts if re-rendering
