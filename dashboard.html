@@ -133,6 +133,28 @@
     white-space: nowrap;
   }
 
+  .order-check-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--green);
+    user-select: none;
+    width: fit-content;
+  }
+  .order-check-label input[type="checkbox"] {
+    width: 17px; height: 17px;
+    accent-color: var(--green);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .order-row.done .order-name,
+  .order-row.done .order-items { text-decoration: line-through; opacity: 0.4; }
+  .order-row.done .order-check-label { color: #aaa; }
+
   .empty {
     text-align: center;
     color: var(--choco);
@@ -273,11 +295,10 @@ function openModal(type) {
     title.textContent = "💰 ยอดขายรวม — แยกตามเดือน";
     const monthMap = {};
     allOrders.forEach(o => {
-      try {
-        const d = new Date(o.timestamp);
-        const key = d.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
-        monthMap[key] = (monthMap[key] || 0) + parseTotal(o.total);
-      } catch(e) {}
+      const ts = parseTimestamp(o.timestamp);
+      if (!ts) return;
+      const key = ts.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+      monthMap[key] = (monthMap[key] || 0) + parseTotal(o.total);
     });
     const rows = Object.entries(monthMap).reverse().map(([m, v]) =>
       `<div class="order-row"><div class="order-name">${m}</div><div class="order-total">${v.toLocaleString("th-TH")} THB</div></div>`
@@ -305,9 +326,34 @@ function closeModal(e) {
 
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("modalOverlay").classList.remove("open"); });
 
+function togglePrepared(i, checked) {
+  const key = `prepared_${todayISO()}_${i}`;
+  localStorage.setItem(key, checked ? "1" : "0");
+  const row = document.getElementById(`orow_${i}`);
+  if (row) row.classList.toggle("done", checked);
+}
+
 function todayISO() {
   const d = new Date();
   return d.toISOString().slice(0, 10);
+}
+
+function parseTimestamp(str) {
+  if (!str || str === "-") return null;
+  const d = new Date(str);
+  if (!isNaN(d)) {
+    if (d.getFullYear() > 2500) {
+      return new Date(d.getFullYear() - 543, d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
+    }
+    return d;
+  }
+  // Thai locale format: "D/M/YYYY HH:MM:SS" with Buddhist year (e.g. "2/7/2569 17:37:21")
+  const m = String(str).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const year = parseInt(m[3]) > 2500 ? parseInt(m[3]) - 543 : parseInt(m[3]);
+    return new Date(year, parseInt(m[2]) - 1, parseInt(m[1]), parseInt(m[4]), parseInt(m[5]), parseInt(m[6] || 0));
+  }
+  return null;
 }
 
 function parseTotal(str) {
@@ -325,16 +371,18 @@ function parseItems(str) {
 function isTodayOrder(o) {
   const today = todayISO();
   if (o.date && o.date !== "-" && String(o.date).slice(0, 10) === today) return true;
-  try {
-    const ts = new Date(o.timestamp);
-    return ts.toISOString().slice(0, 10) === today;
-  } catch(e) { return false; }
+  const ts = parseTimestamp(o.timestamp);
+  return ts ? ts.toISOString().slice(0, 10) === today : false;
 }
 
 async function loadData() {
   const res = await fetch(SHEETS_URL);
   const json = await res.json();
-  return json.orders || [];
+  return (json.orders || []).map(o => {
+    const normalized = {};
+    Object.keys(o).forEach(k => normalized[k.toLowerCase()] = o[k]);
+    return normalized;
+  });
 }
 
 function render(orders) {
@@ -359,10 +407,10 @@ function render(orders) {
   // Daily sales — last 14 days
   const dailyMap = {};
   orders.forEach(o => {
-    try {
-      const d = new Date(o.timestamp).toISOString().slice(0, 10);
-      dailyMap[d] = (dailyMap[d] || 0) + parseTotal(o.total);
-    } catch(e) {}
+    const ts = parseTimestamp(o.timestamp);
+    if (!ts) return;
+    const d = ts.toISOString().slice(0, 10);
+    dailyMap[d] = (dailyMap[d] || 0) + parseTotal(o.total);
   });
   const days = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
@@ -418,16 +466,24 @@ function render(orders) {
       </div>
       ${todayOrders.length === 0
         ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
-        : todayOrders.map(o => `
-          <div class="order-row">
+        : todayOrders.map((o, i) => {
+            const key = `prepared_${todayISO()}_${i}`;
+            const done = localStorage.getItem(key) === "1";
+            return `
+          <div class="order-row${done ? ' done' : ''}" id="orow_${i}">
             <div>
               <div class="order-name">${o.name || "-"}</div>
               <div class="order-meta">📞 ${o.phone || "-"} &nbsp;·&nbsp; 📍 ${o.address || "-"}</div>
               <div class="order-items">🛍 ${o.items || "-"}</div>
               ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
+              <label class="order-check-label">
+                <input type="checkbox" ${done ? "checked" : ""} onchange="togglePrepared(${i}, this.checked)">
+                จัดเตรียมแล้ว
+              </label>
             </div>
             <div class="order-total">${o.total}</div>
-          </div>`).join("")
+          </div>`;
+          }).join("")
       }
     </div>
   `;
