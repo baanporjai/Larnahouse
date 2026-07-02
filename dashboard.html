@@ -158,6 +158,44 @@
     margin-top: 20px;
   }
 
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(43,24,16,0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(43,24,16,0.18);
+    position: relative;
+  }
+  .modal h3 { font-size: 16px; font-weight: 800; margin-bottom: 18px; }
+  .modal-close {
+    position: absolute;
+    top: 18px; right: 20px;
+    background: var(--cream-2);
+    border: none;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+  .stat-card { cursor: pointer; transition: box-shadow .15s, transform .15s; }
+  .stat-card:hover { box-shadow: 0 4px 20px rgba(43,24,16,0.14); transform: translateY(-2px); }
+
   @media (max-width: 680px) {
     .charts { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(2, 1fr); }
@@ -177,6 +215,14 @@
   </div>
 </header>
 
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
 <div class="container">
   <div id="content"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
 </div>
@@ -184,7 +230,80 @@
 <script>
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwBwehAOVJUm4K5w9UQZTE9j70i6eP1zrv0vwIMLYzAoSvrLDMI7dTU6U_44T7YORZf/exec";
 
-let dailyChart, flavorChart;
+let dailyChart, flavorChart, allOrders = [];
+
+function openModal(type) {
+  const overlay = document.getElementById("modalOverlay");
+  const title = document.getElementById("modalTitle");
+  const body = document.getElementById("modalBody");
+
+  if (type === "all") {
+    title.textContent = "📋 ออเดอร์ทั้งหมด";
+    body.innerHTML = allOrders.length === 0
+      ? '<div class="empty">ยังไม่มีออเดอร์</div>'
+      : allOrders.slice().reverse().map(o => `
+        <div class="order-row">
+          <div>
+            <div class="order-name">${o.name || "-"}</div>
+            <div class="order-meta">📞 ${o.phone || "-"} &nbsp;·&nbsp; ${o.fulfillment === "delivery" ? "🚚 จัดส่ง" : "🏠 รับที่ร้าน"}</div>
+            <div class="order-items">🛍 ${o.items || "-"}</div>
+            ${o.address && o.address !== "-" ? `<div class="order-note">📍 ${o.address}</div>` : ""}
+            ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
+            <div class="order-meta">${o.timestamp ? new Date(o.timestamp).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "-"}</div>
+          </div>
+          <div class="order-total">${o.total}</div>
+        </div>`).join("");
+  } else if (type === "today") {
+    const today = todayISO();
+    const todayList = allOrders.filter(isTodayOrder);
+    title.textContent = "🚚 รายการจัดส่งวันนี้";
+    body.innerHTML = todayList.length === 0
+      ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
+      : todayList.map(o => `
+        <div class="order-row">
+          <div>
+            <div class="order-name">${o.name || "-"}</div>
+            <div class="order-meta">📞 ${o.phone || "-"} &nbsp;·&nbsp; 📍 ${o.address || "-"}</div>
+            <div class="order-items">🛍 ${o.items || "-"}</div>
+            ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
+          </div>
+          <div class="order-total">${o.total}</div>
+        </div>`).join("");
+  } else if (type === "revenue") {
+    title.textContent = "💰 ยอดขายรวม — แยกตามเดือน";
+    const monthMap = {};
+    allOrders.forEach(o => {
+      try {
+        const d = new Date(o.timestamp);
+        const key = d.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+        monthMap[key] = (monthMap[key] || 0) + parseTotal(o.total);
+      } catch(e) {}
+    });
+    const rows = Object.entries(monthMap).reverse().map(([m, v]) =>
+      `<div class="order-row"><div class="order-name">${m}</div><div class="order-total">${v.toLocaleString("th-TH")} THB</div></div>`
+    ).join("");
+    body.innerHTML = rows || '<div class="empty">ไม่มีข้อมูล</div>';
+  } else if (type === "flavors") {
+    title.textContent = "🏆 รสชาติขายดี — จำนวนทั้งหมด";
+    const fm = {};
+    allOrders.forEach(o => {
+      parseItems(o.items).forEach(({name, qty}) => { fm[name] = (fm[name] || 0) + qty; });
+    });
+    const rows = Object.entries(fm).sort((a,b) => b[1]-a[1]).map(([name, qty]) =>
+      `<div class="order-row"><div class="order-name">${name}</div><div class="order-total">${qty} ชิ้น</div></div>`
+    ).join("");
+    body.innerHTML = rows || '<div class="empty">ไม่มีข้อมูล</div>';
+  }
+
+  overlay.classList.add("open");
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById("modalOverlay") && e.target !== document.querySelector(".modal-close")) return;
+  document.getElementById("modalOverlay").classList.remove("open");
+}
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("modalOverlay").classList.remove("open"); });
 
 function todayISO() {
   const d = new Date();
@@ -219,6 +338,7 @@ async function loadData() {
 }
 
 function render(orders) {
+  allOrders = orders;
   const today = todayISO();
 
   // Summary stats
@@ -258,23 +378,23 @@ function render(orders) {
   // Render HTML
   document.getElementById("content").innerHTML = `
     <div class="stats">
-      <div class="stat-card highlight">
-        <div class="stat-label">ยอดขายรวม</div>
+      <div class="stat-card highlight" onclick="openModal('revenue')">
+        <div class="stat-label">ยอดขายรวม ↗</div>
         <div class="stat-value">${totalRevenue.toLocaleString("th-TH")}</div>
         <div class="stat-unit">THB</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">ออเดอร์ทั้งหมด</div>
+      <div class="stat-card" onclick="openModal('all')">
+        <div class="stat-label">ออเดอร์ทั้งหมด ↗</div>
         <div class="stat-value">${totalOrders.toLocaleString()}</div>
         <div class="stat-unit">รายการ</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">วันนี้ต้องจัดส่ง</div>
+      <div class="stat-card" onclick="openModal('today')">
+        <div class="stat-label">วันนี้ต้องจัดส่ง ↗</div>
         <div class="stat-value">${todayOrders.length}</div>
         <div class="stat-unit">ออเดอร์</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">เฉลี่ยต่อออเดอร์</div>
+      <div class="stat-card" onclick="openModal('flavors')">
+        <div class="stat-label">เฉลี่ยต่อออเดอร์ ↗</div>
         <div class="stat-value">${avgOrder.toLocaleString()}</div>
         <div class="stat-unit">THB</div>
       </div>
