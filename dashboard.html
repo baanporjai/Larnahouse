@@ -384,9 +384,9 @@ async function updateStatus(btn, row) {
   try {
     await fetch(SHEETS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({ action: "update_status", row: Number(row), status: next }),
-      redirect: "follow",
     });
   } catch(e) { console.log("Status update failed:", e); }
 }
