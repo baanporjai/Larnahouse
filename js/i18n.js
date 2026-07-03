@@ -157,8 +157,9 @@ const I18N = {
 
   /* ===== Order page ===== */
   order_eyebrow:     { th: "สั่งซื้อออนไลน์", en: "Order Online", zh: "在线订购", ko: "온라인 주문" },
-  order_title:       { th: "สั่งเค้กที่ใช่ ให้ Larna House จัดส่งหรือนัดรับให้คุณ", en: "Order Your Favorites — We'll Deliver or Have Them Ready for Pickup", zh: "订购喜爱的口味，由Larna House为您配送或安排自取", ko: "원하는 케이크를 주문하면 Larna House가 배송 또는 픽업을 준비해 드립니다" },
-  order_sub:         { th: "เลือกสินค้าและจำนวนที่ต้องการ จากนั้นแจ้งคำสั่งซื้อผ่าน LINE หรืออีเมล ทางร้านจะติดต่อยืนยันการจัดส่งหรือนัดรับอีกครั้ง", en: "Pick the flavors and quantities you want, then send your order via LINE or email. We'll follow up to confirm delivery or pickup.", zh: "选择您想要的口味和数量，然后通过LINE或电子邮件发送订单。我们会与您联系确认配送或自取详情。", ko: "원하는 맛과 수량을 선택한 뒤 LINE 또는 이메일로 주문을 보내주세요. 배송 또는 픽업 일정은 저희가 다시 연락드려 확인해 드립니다." },
+  order_title:       { th: "สั่งเค้กที่ใช่ ให้ Larna House จัดส่งถึงบ้านคุณ", en: "Order Your Favorites — We'll Deliver Them to Your Door", zh: "订购喜爱的口味，由Larna House为您配送到家", ko: "원하는 케이크를 주문하면 Larna House가 댁까지 배송해 드립니다" },
+  order_sub:         { th: "เลือกสินค้าและจำนวนที่ต้องการ จากนั้นแจ้งคำสั่งซื้อผ่าน LINE หรืออีเมล ทางร้านจะติดต่อยืนยันการจัดส่งอีกครั้ง", en: "Pick the flavors and quantities you want, then send your order via LINE or email. We'll follow up to confirm delivery details.", zh: "选择您想要的口味和数量，然后通过LINE或电子邮件发送订单。我们会与您联系确认配送详情。", ko: "원하는 맛과 수량을 선택한 뒤 LINE 또는 이메일로 주문을 보내주세요. 배송 일정은 저희가 다시 연락드려 확인해 드립니다." },
+  order_free_delivery: { th: "🚚 จัดส่งฟรีในเขตอำเภอเมืองเชียงใหม่ เมื่อสั่งซื้อ 4 ชิ้นขึ้นไป", en: "🚚 Free delivery within Mueang Chiang Mai for orders of 4+ items.", zh: "🚚 清迈市区订购满4件即可享受免费配送。", ko: "🚚 치앙마이 므앙 지역 내 4개 이상 주문 시 무료 배송." },
   order_note_vending:{ th: "💡 ตู้ vending machine ที่เซ็นทรัล เฟสติวัล เชียงใหม่ รองรับเฉพาะซื้อหน้าตู้สแกน QR เท่านั้น ไม่รองรับสั่งล่วงหน้า หากต้องการสั่งล่วงหน้า กรุณาใช้หน้านี้", en: "💡 The vending machine at Central Festival Chiang Mai is walk-up only (scan QR to pay) and doesn't take pre-orders. Use this page to pre-order instead.", zh: "💡 清迈Central Festival的自助售货机仅支持现场扫码购买，不支持预订。如需预订，请使用本页面。", ko: "💡 센트럴 페스티벌 치앙마이의 자판기는 현장에서 QR 결제로만 구매 가능하며 사전 주문은 받지 않습니다. 사전 주문은 이 페이지를 이용해 주세요." },
 
   order_pick_title:  { th: "1. เลือกสินค้า", en: "1. Choose Your Cakes", zh: "1. 选择您的蛋糕", ko: "1. 케이크 선택" },
