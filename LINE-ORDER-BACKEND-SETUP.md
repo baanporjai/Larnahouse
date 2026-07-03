@@ -1,5 +1,7 @@
 # Order Backend Setup (Cloudflare Worker + LINE)
 
+> **Status: ✅ Set up and working** (as of 2026-07-03). The Worker `larnaapi` is deployed with all required secrets (`LINE_CHANNEL_ACCESS_TOKEN`, `LINE_TARGET_ID`, `SHEETS_URL`, `ADMIN_PIN`, `SESSION_SECRET`) and `order.html` points at it. This doc is kept for reference — e.g. if the LINE token ever needs rotating, or the Worker needs redeploying from scratch.
+
 This replaces the manual "open LINE / send email" flow with a one-click form that sends the order straight to a LINE chat for the shop, the same way O'Fresh works.
 
 ## 1. Get a LINE Messaging API channel + token
@@ -51,4 +53,4 @@ Save, and the order form will go live — submissions will POST to the Worker, w
 
 - The "Chat with us on LINE" and "Email us" links on the order page are kept as backup contact options — they don't depend on the Worker.
 - If the Worker call fails (network issue, misconfigured secret, etc.), the page shows an error and tells the customer to message `@baanporjai` directly, so no order is silently lost.
-- I can't deploy this to your Cloudflare account or enter the LINE token for you — these steps need to be done from your own Cloudflare/LINE logins.
+- To rotate the LINE token or update the target ID later, run `wrangler secret put LINE_CHANNEL_ACCESS_TOKEN --name larnaapi` (or `LINE_TARGET_ID`) from this folder and paste the new value when prompted.
