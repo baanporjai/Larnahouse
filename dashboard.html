@@ -104,6 +104,27 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 
   .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
 
+  .search-bar { margin-bottom: 20px; }
+  .search-bar input {
+    width: 100%; padding: 13px 18px; border-radius: 14px;
+    border: 1.5px solid var(--cream-2); font-family: inherit;
+    font-size: 14px; color: var(--choco-dark); background: #fff;
+    box-shadow: 0 2px 12px rgba(43,24,16,0.07); outline: none; transition: border-color .2s;
+  }
+  .search-bar input:focus { border-color: var(--frost); }
+
+  .compare-row {
+    display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--cream-2);
+  }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-label { font-size: 13px; font-weight: 700; color: var(--choco-dark); }
+  .compare-values { font-size: 12px; color: var(--choco); opacity: .6; margin-top: 2px; }
+  .compare-delta { font-weight: 800; padding: 5px 12px; border-radius: 999px; font-size: 12px; white-space: nowrap; }
+  .compare-delta.up { background: #d4edda; color: #155724; }
+  .compare-delta.down { background: #f8d7da; color: #842029; }
+  .compare-delta.flat { background: var(--cream-2); color: var(--choco); }
+
   /* Stat cards */
   .stats {
     display: grid;
@@ -206,6 +227,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .status-badge:active { transform: scale(0.97); }
   .status-รอยืนยัน   { background: #fff3cd; color: #856404; }
   .status-จัดเตรียมแล้ว { background: #cce5ff; color: #004085; }
+  .status-แพ็คแล้ว    { background: #e0d4fd; color: #5b2a86; }
   .status-ส่งแล้ว    { background: #d4edda; color: #155724; }
   .order-row.sent .order-name,
   .order-row.sent .order-items { opacity: 0.4; }
@@ -301,11 +323,67 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 </div>
 
 <div class="container">
+  <div class="search-bar">
+    <input type="text" id="searchInput" oninput="onSearchInput(this.value)" placeholder="ค้นหาชื่อลูกค้า หรือเบอร์โทร...">
+  </div>
   <div id="content"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
 </div>
 
 <script>
 let dailyChart, flavorChart, allOrders = [];
+
+let searchQuery = "";
+function onSearchInput(val) {
+  searchQuery = val.trim().toLowerCase();
+  render(allOrders);
+}
+function matchesSearch(o) {
+  if (!searchQuery) return true;
+  return (o.name || "").toLowerCase().includes(searchQuery) || (o.phone || "").toString().includes(searchQuery);
+}
+
+function sumInRange(orders, fromMs, toMs) {
+  return orders.reduce((acc, o) => {
+    const ts = parseTimestamp(o.timestamp);
+    if (!ts) return acc;
+    const t = ts.getTime();
+    if (t >= fromMs && t < toMs) { acc.count++; acc.revenue += parseTotal(o.total); }
+    return acc;
+  }, { count: 0, revenue: 0 });
+}
+
+function renderComparisonHTML(orders) {
+  const now = Date.now();
+  const DAY = 86400000;
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const todayMs = startOfToday.getTime();
+
+  const periods = [
+    { label: "วันนี้ vs เมื่อวาน (ถึงตอนนี้)", cur: sumInRange(orders, todayMs, now), prev: sumInRange(orders, todayMs - DAY, todayMs) },
+    { label: "7 วันล่าสุด vs 7 วันก่อนหน้า", cur: sumInRange(orders, now - 7 * DAY, now), prev: sumInRange(orders, now - 14 * DAY, now - 7 * DAY) },
+    { label: "30 วันล่าสุด vs 30 วันก่อนหน้า", cur: sumInRange(orders, now - 30 * DAY, now), prev: sumInRange(orders, now - 60 * DAY, now - 30 * DAY) },
+  ];
+
+  return periods.map(p => {
+    let pct, cls;
+    if (p.prev.revenue > 0) {
+      pct = (p.cur.revenue - p.prev.revenue) / p.prev.revenue * 100;
+      cls = pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat";
+    } else {
+      pct = p.cur.revenue > 0 ? 100 : 0;
+      cls = p.cur.revenue > 0 ? "up" : "flat";
+    }
+    const arrow = cls === "up" ? "↑" : cls === "down" ? "↓" : "→";
+    return `
+    <div class="compare-row">
+      <div>
+        <div class="compare-label">${p.label}</div>
+        <div class="compare-values">${p.cur.revenue.toLocaleString("th-TH")} THB (${p.cur.count} ออเดอร์) เทียบกับ ${p.prev.revenue.toLocaleString("th-TH")} THB</div>
+      </div>
+      <div class="compare-delta ${cls}">${arrow} ${Math.abs(pct).toFixed(0)}%</div>
+    </div>`;
+  }).join("");
+}
 
 function openModal(type) {
   const overlay = document.getElementById("modalOverlay");
@@ -368,7 +446,7 @@ function closeModal(e) {
 
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("modalOverlay").classList.remove("open"); });
 
-const STATUS_CYCLE = ["รอยืนยัน", "จัดเตรียมแล้ว", "ส่งแล้ว"];
+const STATUS_CYCLE = ["รอยืนยัน", "จัดเตรียมแล้ว", "แพ็คแล้ว", "ส่งแล้ว"];
 
 function orderRowHTML(o) {
   const status = o.status || "รอยืนยัน";
@@ -486,14 +564,17 @@ function render(orders) {
   allOrders = orders;
   const today = todayISO();
 
-  // Summary stats
+  // Summary stats (ไม่กรองตามคำค้นหา — เป็นภาพรวมธุรกิจจริง)
   const totalRevenue = orders.reduce((s, o) => s + parseTotal(o.total), 0);
   const totalOrders = orders.length;
   const todayOrders = orders.filter(isTodayOrder);
   const avgOrder = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
 
+  // รายการที่แสดงจริง — กรองตามคำค้นหาด้วย
+  const todayOrdersFiltered = todayOrders.filter(matchesSearch);
+
   // Upcoming orders grouped by date
-  const upcomingOrders = orders.filter(isUpcomingOrder);
+  const upcomingOrders = orders.filter(isUpcomingOrder).filter(matchesSearch);
   const upcomingByDate = {};
   upcomingOrders.forEach(o => {
     const d = getOrderDate(o);
@@ -576,15 +657,20 @@ function render(orders) {
     <div class="card">
       <div class="section-header">
         <h3>🚚 รายการจัดส่งวันนี้</h3>
-        <span class="count-badge">${todayOrders.length} ออเดอร์</span>
+        <span class="count-badge">${todayOrdersFiltered.length} ออเดอร์</span>
       </div>
-      ${todayOrders.length === 0
+      ${todayOrdersFiltered.length === 0
         ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
-        : todayOrders.map(o => orderRowHTML(o)).join("")
+        : todayOrdersFiltered.map(o => orderRowHTML(o)).join("")
       }
     </div>
 
     ${upcomingHTML}
+
+    <div class="card" style="margin-top:20px;">
+      <h3>📊 เทียบกับช่วงก่อนหน้า</h3>
+      ${renderComparisonHTML(orders)}
+    </div>
   `;
 
   // Destroy old charts if re-rendering
