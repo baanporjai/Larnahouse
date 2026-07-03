@@ -6,8 +6,10 @@
 <title>Dashboard — Frozen Larna Cake</title>
 <link rel="icon" href="favicon.gif" type="image/gif">
 <script>
+const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
+
 (function(){
-  if (sessionStorage.getItem("dash_auth") !== "1") {
+  if (!sessionStorage.getItem("dash_token")) {
     document.addEventListener("DOMContentLoaded", function() {
       document.body.style.display = "none";
       var overlay = document.createElement("div");
@@ -33,15 +35,28 @@
       });
     });
   }
-  window.checkPin = function() {
-    var val = document.getElementById("pin-input").value;
-    if (val === "718888") {
-      sessionStorage.setItem("dash_auth", "1");
-      document.getElementById("pin-overlay").remove();
-    } else {
-      document.getElementById("pin-error").style.display = "";
-      document.getElementById("pin-input").value = "";
-      document.getElementById("pin-input").focus();
+  window.checkPin = async function() {
+    var input = document.getElementById("pin-input");
+    var errorEl = document.getElementById("pin-error");
+    errorEl.style.display = "none";
+    try {
+      const res = await fetch(API_BASE + "/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: input.value }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        sessionStorage.setItem("dash_token", data.token);
+        document.getElementById("pin-overlay").remove();
+        init();
+      } else {
+        errorEl.style.display = "";
+        input.value = ""; input.focus();
+      }
+    } catch (e) {
+      errorEl.textContent = "เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง";
+      errorEl.style.display = "";
     }
   };
 })();
@@ -290,8 +305,6 @@
 </div>
 
 <script>
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwBwehAOVJUm4K5w9UQZTE9j70i6eP1zrv0vwIMLYzAoSvrLDMI7dTU6U_44T7YORZf/exec";
-
 let dailyChart, flavorChart, allOrders = [];
 
 function openModal(type) {
@@ -382,11 +395,11 @@ async function updateStatus(btn, row) {
   if (orderRow) orderRow.classList.toggle("sent", next === "ส่งแล้ว");
   if (!row) return;
   try {
-    await fetch(SHEETS_URL, {
+    const token = sessionStorage.getItem("dash_token");
+    await fetch(API_BASE + "/api/admin/update-status", {
       method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ action: "update_status", row: Number(row), status: next }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ row: Number(row), status: next }),
     });
   } catch(e) { console.log("Status update failed:", e); }
 }
@@ -452,7 +465,15 @@ function formatDateTH(iso) {
 }
 
 async function loadData() {
-  const res = await fetch(SHEETS_URL);
+  const token = sessionStorage.getItem("dash_token");
+  const res = await fetch(API_BASE + "/api/admin/orders", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    sessionStorage.removeItem("dash_token");
+    location.reload();
+    throw new Error("Unauthorized");
+  }
   const json = await res.json();
   return (json.orders || []).map(o => {
     const normalized = {};
@@ -638,7 +659,7 @@ async function init() {
   }
 }
 
-init();
+if (sessionStorage.getItem("dash_token")) init();
 </script>
 </body>
 </html>
