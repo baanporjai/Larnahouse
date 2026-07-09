@@ -144,7 +144,7 @@ const I18N = {
   care1_li2_b:     { th: "ตู้เย็นธรรมดา (4°C)", en: "Regular Fridge (4°C)", zh: "冷藏室（4°C）", ko: "일반 냉장실 (4°C)" },
   care1_li2_t:     { th: "— เก็บได้ 5–7 วันหลังนำออกจากช่องแข็ง", en: "— keeps 5–7 days once moved out of the freezer.", zh: "— 从冷冻室取出后可冷藏保存5–7天。", ko: "— 냉동실에서 옮긴 후 5~7일간 보관 가능합니다." },
   care1_li3_b:     { th: "อุณหภูมิห้อง", en: "Room Temperature", zh: "室温", ko: "실온" },
-  care1_li3_t:     { th: "— วางไว้ข้างนอกตู้เย็นได้ 2 ชม. ไม่แนะนำเก็บค้างคืน", en: "— fine outside the fridge for up to 2 hrs; not recommended overnight.", zh: "— 可在室温下放置最多2小时，不建议放置过夜。", ko: "— 냉장고 밖에 최대 2시간까지는 괜찮으나 밤새 두는 것은 권장하지 않습니다." },
+  care1_li3_t:     { th: "— วางไว้ข้างนอกตู้เย็นได้ 8-10 ชม. ไม่แนะนำเก็บค้างคืน", en: "— fine outside the fridge for up to 8-10 hrs; not recommended overnight.", zh: "— 可在室温下放置最多8-10小时，不建议放置过夜。", ko: "— 냉장고 밖에 최대 8-10시간까지는 괜찮으나 밤새 두는 것은 권장하지 않습니다." },
   care1_tip:       { th: "ไม่มีวัตถุกันเสีย — ความสดขึ้นอยู่กับการเก็บรักษาค่ะ", en: "No preservatives added — freshness depends on proper storage.", zh: "不含防腐剂——新鲜度取决于妥善的保存方式。", ko: "보존제를 첨가하지 않았습니다 — 신선도는 올바른 보관 방법에 따라 달라집니다." },
 
   care2_q:         { th: "จะทาน Frozen Larna Cake ต้องทำอย่างไร?", en: "How should I eat Frozen Larna Cake?", zh: "Frozen Larna Cake 该怎么吃？", ko: "Frozen Larna Cake는 어떻게 먹어야 하나요?" },
