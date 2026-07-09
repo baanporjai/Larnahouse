@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Frozen Larna Cake</title>
 <link rel="icon" href="/favicon.gif" type="image/gif">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
 const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 
@@ -64,16 +67,22 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root {
-    --choco-dark: #2B1810;
-    --choco: #5C3317;
-    --frost: #2A9FC9;
-    --cream: #FDF6EE;
-    --cream-2: #F0E6D6;
+    --choco-dark: #1C0F08;
+    --choco: #4A2C1D;
+    --choco-soft: #8A6A54;
+    --frost: #3FB6DE;
+    --frost-deep: #1E7A9C;
+    --cream: #FBF3E7;
+    --cream-2: #F0E3D1;
     --gold: #D4A64A;
     --green: #27ae60;
+    --sorbet: #E85D4C;
+    --sorbet-soft: #FCE7E3;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--cream); color: var(--choco-dark); min-height: 100vh; }
+  body { font-family: var(--font-body); background: var(--cream); color: var(--choco-dark); min-height: 100vh; }
 
   header {
     background: var(--choco-dark);
@@ -87,7 +96,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     top: 0;
     z-index: 10;
   }
-  header h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-family: var(--font-display); font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
   header .nav-logo { height: 32px; width: auto; display: block; }
   .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; justify-self: center; }
   .page-tab {
@@ -110,6 +119,17 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     transition: background .15s;
   }
   .refresh-btn:hover { background: rgba(255,255,255,0.22); }
+
+  /* Chocolate-drip divider — the header's one signature flourish */
+  .drip-divider {
+    position: absolute; left: 0; right: 0; top: 100%; height: 16px;
+    background: var(--choco-dark);
+    -webkit-mask: radial-gradient(circle at 9px 0, transparent 9px, black 9.5px) repeat-x;
+    mask: radial-gradient(circle at 9px 0, transparent 9px, black 9.5px) repeat-x;
+    -webkit-mask-size: 18px 16px;
+    mask-size: 18px 16px;
+    pointer-events: none;
+  }
 
   .container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
 
@@ -157,14 +177,16 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     margin-bottom: 8px;
   }
   .stat-value {
-    font-size: 32px;
-    font-weight: 900;
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 700;
     color: var(--choco-dark);
     line-height: 1;
+    font-variant-numeric: tabular-nums;
   }
   .stat-unit { font-size: 13px; font-weight: 400; opacity: 0.45; margin-top: 4px; }
-  .stat-card.highlight { background: var(--choco-dark); }
-  .stat-card.highlight .stat-label { color: #fff; }
+  .stat-card.highlight { background: linear-gradient(135deg, var(--choco-dark) 0%, var(--frost-deep) 160%); }
+  .stat-card.highlight .stat-label { color: rgba(255,255,255,.75); }
   .stat-card.highlight .stat-value { color: #fff; }
   .stat-card.highlight .stat-unit { color: rgba(255,255,255,0.5); }
 
@@ -177,8 +199,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     box-shadow: 0 2px 12px rgba(43,24,16,0.07);
   }
   .card h3 {
-    font-size: 14px;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 600;
+    font-style: italic;
     margin-bottom: 18px;
     color: var(--choco-dark);
   }
@@ -190,7 +214,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     justify-content: space-between;
     margin-bottom: 18px;
   }
-  .section-header h3 { font-size: 14px; font-weight: 700; }
+  .section-header h3 { margin-bottom: 0; }
   .count-badge {
     background: var(--frost);
     color: #fff;
@@ -199,16 +223,21 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     font-size: 12px;
     font-weight: 700;
   }
+  .count-badge.urgent { background: var(--sorbet); }
+  .card.urgent { border: 1px solid rgba(232,93,76,.3); box-shadow: 0 2px 16px rgba(232,93,76,.14); }
 
   .order-row {
     border-bottom: 1px solid var(--cream-2);
-    padding: 14px 0;
+    padding: 14px 0 14px 14px;
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 8px 16px;
     align-items: start;
+    border-left: 3px solid transparent;
   }
   .order-row:last-child { border-bottom: none; }
+  .order-row.urgent { border-left-color: var(--sorbet); background: var(--sorbet-soft); border-radius: 0 10px 10px 0; margin-bottom: 2px; }
+  .order-row.urgent .order-date-label { color: var(--sorbet); }
   .order-name { font-weight: 700; font-size: 14px; }
   .order-meta { font-size: 12px; color: var(--choco); opacity: 0.55; margin-top: 3px; }
   .order-date-label { font-size: 12px; color: var(--frost); font-weight: 700; margin-top: 3px; }
@@ -240,10 +269,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     transition: opacity .15s;
   }
   .status-select:disabled { opacity: .6; cursor: wait; }
-  .status-รอยืนยัน   { background-color: #fff3cd; color: #856404; }
-  .status-จัดเตรียมแล้ว { background-color: #cce5ff; color: #004085; }
-  .status-แพ็คแล้ว    { background-color: #e0d4fd; color: #5b2a86; }
-  .status-ส่งแล้ว    { background-color: #d4edda; color: #155724; }
+  .status-รอยืนยัน   { background-color: #F7E7C4; color: #8A6215; }
+  .status-จัดเตรียมแล้ว { background-color: #DCF1F8; color: var(--frost-deep); }
+  .status-แพ็คแล้ว    { background-color: #EAE0F4; color: #6B3FA0; }
+  .status-ส่งแล้ว    { background-color: #DCEFDF; color: #1E7A3C; }
   .order-row.sent .order-name,
   .order-row.sent .order-items { opacity: 0.4; }
 
@@ -333,6 +362,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     <span id="lastUpdated">กำลังโหลด...</span>
     <button class="refresh-btn" onclick="init()">🔄 รีเฟรช</button>
   </div>
+  <div class="drip-divider" aria-hidden="true"></div>
 </header>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
@@ -482,7 +512,7 @@ function orderRowHTML(o, opts) {
     return d ? `<div class="order-date-label">📅 ${formatDateTH(d)}</div>` : "";
   })() : "";
   return `
-    <div class="order-row${status === 'ส่งแล้ว' ? ' sent' : ''}">
+    <div class="order-row${status === 'ส่งแล้ว' ? ' sent' : ''}${opts.urgent ? ' urgent' : ''}">
       <div>
         <div class="order-name">${o.name || "-"}</div>
         ${dateLabel}
@@ -682,14 +712,14 @@ function render(orders) {
       }
     </div>
 
-    <div class="card" style="margin-top:20px;">
+    <div class="card${overdueOrders.length ? ' urgent' : ''}" style="margin-top:20px;">
       <div class="section-header">
         <h3>⏰ รายการค้างยังรอจัดส่ง</h3>
-        <span class="count-badge">${overdueOrders.length} ออเดอร์</span>
+        <span class="count-badge${overdueOrders.length ? ' urgent' : ''}">${overdueOrders.length} ออเดอร์</span>
       </div>
       ${overdueOrders.length === 0
         ? '<div class="empty">ไม่มีรายการค้าง</div>'
-        : overdueOrders.map(o => orderRowHTML(o, { showDate: true })).join("")
+        : overdueOrders.map(o => orderRowHTML(o, { showDate: true, urgent: true })).join("")
       }
     </div>
 

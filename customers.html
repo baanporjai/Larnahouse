@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ประวัติลูกค้า — Frozen Larna Cake</title>
 <link rel="icon" href="/favicon.gif" type="image/gif">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
 const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 
@@ -63,16 +66,22 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 </script>
 <style>
   :root {
-    --choco-dark: #2B1810;
-    --choco: #5C3317;
-    --frost: #2A9FC9;
-    --cream: #FDF6EE;
-    --cream-2: #F0E6D6;
+    --choco-dark: #1C0F08;
+    --choco: #4A2C1D;
+    --choco-soft: #8A6A54;
+    --frost: #3FB6DE;
+    --frost-deep: #1E7A9C;
+    --cream: #FBF3E7;
+    --cream-2: #F0E3D1;
     --gold: #D4A64A;
     --green: #27ae60;
+    --sorbet: #E85D4C;
+    --sorbet-soft: #FCE7E3;
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--cream); color: var(--choco-dark); min-height: 100vh; }
+  body { font-family: var(--font-body); background: var(--cream); color: var(--choco-dark); min-height: 100vh; }
 
   header {
     background: var(--choco-dark);
@@ -86,7 +95,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     top: 0;
     z-index: 10;
   }
-  header h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-family: var(--font-display); font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
   header .nav-logo { height: 32px; width: auto; display: block; }
   .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; justify-self: center; }
   .page-tab {
@@ -95,6 +104,15 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   }
   .page-tab.active { background: var(--frost); color: #fff; }
   .page-tab:not(.active):hover { color: #fff; }
+  .drip-divider {
+    position: absolute; left: 0; right: 0; top: 100%; height: 16px;
+    background: var(--choco-dark);
+    -webkit-mask: radial-gradient(circle at 9px 0, transparent 9px, black 9.5px) repeat-x;
+    mask: radial-gradient(circle at 9px 0, transparent 9px, black 9.5px) repeat-x;
+    -webkit-mask-size: 18px 16px;
+    mask-size: 18px 16px;
+    pointer-events: none;
+  }
 
   .container { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
 
@@ -104,7 +122,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     box-shadow: 0 2px 12px rgba(43,24,16,0.07);
   }
   .kpi-mini-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--choco); opacity: .5; font-weight: 700; }
-  .kpi-mini-value { font-size: 24px; font-weight: 900; color: var(--frost); margin-top: 4px; }
+  .kpi-mini-value { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--frost-deep); margin-top: 4px; }
   .kpi-mini.clickable { cursor: pointer; transition: transform .15s, box-shadow .15s; }
   .kpi-mini.clickable:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(43,24,16,0.14); }
 
@@ -131,12 +149,12 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .cust-row:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(43,24,16,0.14); }
   .cust-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .cust-name { font-weight: 700; font-size: 15px; color: var(--choco-dark); }
-  .cust-total { font-weight: 800; font-size: 15px; color: var(--frost); white-space: nowrap; }
+  .cust-total { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--frost-deep); white-space: nowrap; }
   .cust-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--choco); opacity: .65; }
   .cust-dates { margin-top: 4px; font-size: 11px; color: var(--choco); opacity: .5; }
   .cust-badge {
     display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 20px;
-    font-size: 11px; font-weight: 700; background: rgba(42,159,201,.12); color: var(--frost);
+    font-size: 11px; font-weight: 700; background: rgba(63,182,222,.15); color: var(--frost-deep);
   }
   .cust-trophy { display: inline-block; margin-right: 6px; font-size: 16px; }
   .cust-row.rank-1 { box-shadow: 0 2px 12px rgba(43,24,16,0.07), 0 0 0 1px rgba(212,166,74,.4) inset; }
@@ -160,7 +178,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     background: #fff; border-radius: 20px; padding: 28px; width: 100%; max-width: 560px;
     max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(43,24,16,0.18); position: relative;
   }
-  .modal h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; padding-right: 30px; }
+  .modal h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 4px; padding-right: 30px; }
   .modal-sub { font-size: 13px; color: var(--choco); opacity: .6; margin-bottom: 18px; }
   .modal-close {
     position: absolute; top: 18px; right: 20px; background: var(--cream-2); border: none;
@@ -177,7 +195,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .repeat-stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 18px; }
   .repeat-stat { background: var(--cream); border-radius: 12px; padding: 12px 14px; }
   .repeat-stat-label { font-size: 11px; color: var(--choco); opacity: .6; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-  .repeat-stat-value { font-size: 18px; font-weight: 800; color: var(--frost); margin-top: 2px; }
+  .repeat-stat-value { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--frost-deep); margin-top: 2px; }
   .repeat-row {
     display: flex; justify-content: space-between; align-items: center; gap: 10px;
     padding: 11px 0; border-bottom: 1px solid var(--cream-2); cursor: pointer; transition: background .15s;
@@ -186,12 +204,12 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .repeat-row:hover { background: var(--cream); }
   .repeat-row-name { font-weight: 700; font-size: 13px; color: var(--choco-dark); }
   .repeat-row-meta { font-size: 11px; color: var(--choco); opacity: .6; margin-top: 2px; }
-  .repeat-row-total { font-weight: 800; font-size: 13px; color: var(--frost); white-space: nowrap; }
+  .repeat-row-total { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--frost-deep); white-space: nowrap; }
 
   @media (max-width: 500px) {
     .kpi-strip { grid-template-columns: repeat(2, 1fr); }
     header { grid-template-columns: 1fr; justify-items: center; text-align: center; }
-    header > div:last-child { display: none; }
+    .header-spacer { display: none; }
   }
 </style>
 </head>
@@ -203,7 +221,8 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     <a href="/dashboard.html" class="page-tab">แดชบอร์ด</a>
     <span class="page-tab active">ประวัติลูกค้า</span>
   </div>
-  <div></div>
+  <div class="header-spacer"></div>
+  <div class="drip-divider" aria-hidden="true"></div>
 </header>
 
 <div class="modal-overlay" id="custModal" onclick="if(event.target===this) closeCustModal()">
