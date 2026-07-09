@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ประวัติลูกค้า — Frozen Larna Cake</title>
+<link rel="icon" href="/favicon.gif" type="image/gif">
+<script>
+const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
+
+(function(){
+  if (!sessionStorage.getItem("dash_token")) {
+    document.addEventListener("DOMContentLoaded", function() {
+      document.body.style.display = "none";
+      var overlay = document.createElement("div");
+      overlay.id = "pin-overlay";
+      overlay.innerHTML = `
+        <div style="position:fixed;inset:0;background:#2B1810;display:flex;align-items:center;justify-content:center;z-index:9999;">
+          <div style="background:#fff;border-radius:20px;padding:40px 32px;width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3);">
+            <div style="font-size:32px;margin-bottom:8px;">🔐</div>
+            <h2 style="font-size:18px;font-weight:800;color:#2B1810;margin-bottom:4px;">Larna Dashboard</h2>
+            <p style="font-size:13px;color:#888;margin-bottom:24px;">กรอก PIN เพื่อเข้าใช้งาน</p>
+            <input id="pin-input" type="password" inputmode="numeric" maxlength="6"
+              style="width:100%;text-align:center;font-size:28px;letter-spacing:8px;border:2px solid #e0d0c0;border-radius:12px;padding:12px;outline:none;color:#2B1810;"
+              placeholder="••••••">
+            <p id="pin-error" style="color:#c0392b;font-size:13px;margin-top:12px;display:none;">PIN ไม่ถูกต้อง ลองใหม่อีกครั้ง</p>
+            <button onclick="checkPin()" style="margin-top:20px;width:100%;background:#2B1810;color:#fff;border:none;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;">เข้าสู่ระบบ</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      document.body.style.display = "";
+      setTimeout(() => document.getElementById("pin-input").focus(), 100);
+      document.getElementById("pin-input").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") checkPin();
+      });
+    });
+  }
+  window.checkPin = async function() {
+    var input = document.getElementById("pin-input");
+    var errorEl = document.getElementById("pin-error");
+    errorEl.style.display = "none";
+    try {
+      const res = await fetch(API_BASE + "/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: input.value }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        sessionStorage.setItem("dash_token", data.token);
+        document.getElementById("pin-overlay").remove();
+        init();
+      } else {
+        errorEl.style.display = "";
+        input.value = ""; input.focus();
+      }
+    } catch (e) {
+      errorEl.textContent = "เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง";
+      errorEl.style.display = "";
+    }
+  };
+})();
+</script>
+<style>
+  :root {
+    --choco-dark: #2B1810;
+    --choco: #5C3317;
+    --frost: #2A9FC9;
+    --cream: #FDF6EE;
+    --cream-2: #F0E6D6;
+    --gold: #D4A64A;
+    --green: #27ae60;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--cream); color: var(--choco-dark); min-height: 100vh; }
+
+  header {
+    background: var(--choco-dark);
+    color: #fff;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+  header .nav-logo { height: 32px; width: auto; display: block; }
+  .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; }
+  .page-tab {
+    padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
+    text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
+  }
+  .page-tab.active { background: var(--frost); color: #fff; }
+  .page-tab:not(.active):hover { color: #fff; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi-mini {
+    background: #fff; border-radius: 16px; padding: 16px 18px;
+    box-shadow: 0 2px 12px rgba(43,24,16,0.07);
+  }
+  .kpi-mini-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--choco); opacity: .5; font-weight: 700; }
+  .kpi-mini-value { font-size: 24px; font-weight: 900; color: var(--frost); margin-top: 4px; }
+  .kpi-mini.clickable { cursor: pointer; transition: transform .15s, box-shadow .15s; }
+  .kpi-mini.clickable:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(43,24,16,0.14); }
+
+  .search-bar { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .search-bar input {
+    flex: 1; min-width: 200px; padding: 13px 18px; border-radius: 14px;
+    border: 1.5px solid var(--cream-2); font-family: inherit;
+    font-size: 14px; color: var(--choco-dark); background: #fff;
+    box-shadow: 0 2px 12px rgba(43,24,16,0.07); outline: none; transition: border-color .2s;
+  }
+  .search-bar input:focus { border-color: var(--frost); }
+  .sort-select {
+    padding: 13px 16px; border-radius: 14px; border: 1.5px solid var(--cream-2);
+    font-family: inherit; font-size: 13px; color: var(--choco-dark);
+    background: #fff; box-shadow: 0 2px 12px rgba(43,24,16,0.07); outline: none; cursor: pointer;
+  }
+
+  .cust-list { display: flex; flex-direction: column; gap: 10px; }
+  .cust-row {
+    background: #fff; border-radius: 16px; padding: 16px 20px;
+    box-shadow: 0 2px 12px rgba(43,24,16,0.07);
+    cursor: pointer; transition: transform .15s, box-shadow .15s;
+  }
+  .cust-row:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(43,24,16,0.14); }
+  .cust-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .cust-name { font-weight: 700; font-size: 15px; color: var(--choco-dark); }
+  .cust-total { font-weight: 800; font-size: 15px; color: var(--frost); white-space: nowrap; }
+  .cust-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--choco); opacity: .65; }
+  .cust-dates { margin-top: 4px; font-size: 11px; color: var(--choco); opacity: .5; }
+  .cust-badge {
+    display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; background: rgba(42,159,201,.12); color: var(--frost);
+  }
+  .cust-trophy { display: inline-block; margin-right: 6px; font-size: 16px; }
+  .cust-row.rank-1 { box-shadow: 0 2px 12px rgba(43,24,16,0.07), 0 0 0 1px rgba(212,166,74,.4) inset; }
+  .cust-row.rank-2 { box-shadow: 0 2px 12px rgba(43,24,16,0.07), 0 0 0 1px rgba(160,160,175,.35) inset; }
+  .cust-row.rank-3 { box-shadow: 0 2px 12px rgba(43,24,16,0.07), 0 0 0 1px rgba(205,127,50,.35) inset; }
+
+  .empty { text-align: center; color: var(--choco); opacity: .4; font-size: 14px; padding: 40px 0; }
+  .loading-state { text-align: center; padding: 80px 0; color: var(--choco); opacity: .4; font-size: 15px; }
+  .error-state {
+    background: #fff0f0; border-radius: 16px; padding: 28px; text-align: center;
+    color: #c0392b; font-size: 14px; margin-top: 20px;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(43,24,16,0.45);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 20px; padding: 28px; width: 100%; max-width: 560px;
+    max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(43,24,16,0.18); position: relative;
+  }
+  .modal h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; padding-right: 30px; }
+  .modal-sub { font-size: 13px; color: var(--choco); opacity: .6; margin-bottom: 18px; }
+  .modal-close {
+    position: absolute; top: 18px; right: 20px; background: var(--cream-2); border: none;
+    border-radius: 50%; width: 32px; height: 32px; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-weight: 700;
+  }
+
+  .hist-row { padding: 12px 0; border-bottom: 1px solid var(--cream-2); font-size: 13px; }
+  .hist-row:last-child { border-bottom: none; }
+  .hist-top { display: flex; justify-content: space-between; font-weight: 700; }
+  .hist-meta { color: var(--choco); opacity: .6; font-size: 12px; margin-top: 3px; }
+  .hist-note { color: var(--choco); opacity: .8; font-size: 12px; margin-top: 3px; }
+
+  .repeat-stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 18px; }
+  .repeat-stat { background: var(--cream); border-radius: 12px; padding: 12px 14px; }
+  .repeat-stat-label { font-size: 11px; color: var(--choco); opacity: .6; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .repeat-stat-value { font-size: 18px; font-weight: 800; color: var(--frost); margin-top: 2px; }
+  .repeat-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--cream-2); cursor: pointer; transition: background .15s;
+  }
+  .repeat-row:last-child { border-bottom: none; }
+  .repeat-row:hover { background: var(--cream); }
+  .repeat-row-name { font-weight: 700; font-size: 13px; color: var(--choco-dark); }
+  .repeat-row-meta { font-size: 11px; color: var(--choco); opacity: .6; margin-top: 2px; }
+  .repeat-row-total { font-weight: 800; font-size: 13px; color: var(--frost); white-space: nowrap; }
+
+  @media (max-width: 500px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><img class="nav-logo" src="https://ik.imagekit.io/p3u6ogh1n/tr:w-200,f-webp,quality-100/carousel-section/02655820-e466-4648-8caa-6a415a7d2dbf.png" alt="Larna House">👥 ประวัติลูกค้า</h1>
+  <div class="page-tabs">
+    <a href="/dashboard.html" class="page-tab">แดชบอร์ด</a>
+    <span class="page-tab active">ประวัติลูกค้า</span>
+  </div>
+</header>
+
+<div class="modal-overlay" id="custModal" onclick="if(event.target===this) closeCustModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeCustModal()">✕</button>
+    <h3 id="modalTitle">—</h3>
+    <div class="modal-sub" id="modalSub">—</div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="repeatModal" onclick="if(event.target===this) closeRepeatModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeRepeatModal()">✕</button>
+    <h3>ลูกค้าซื้อซ้ำ</h3>
+    <div class="modal-sub" id="repeatModalSub">—</div>
+    <div class="repeat-stats">
+      <div class="repeat-stat">
+        <div class="repeat-stat-label">สัดส่วนลูกค้า</div>
+        <div class="repeat-stat-value" id="repeatRateValue">—</div>
+      </div>
+      <div class="repeat-stat">
+        <div class="repeat-stat-label">สัดส่วนยอดขาย</div>
+        <div class="repeat-stat-value" id="repeatRevenueShareValue">—</div>
+      </div>
+    </div>
+    <div id="repeatList"></div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="kpi-strip">
+    <div class="kpi-mini">
+      <div class="kpi-mini-label">ลูกค้าทั้งหมด</div>
+      <div class="kpi-mini-value" id="kpiCustomers">—</div>
+    </div>
+    <div class="kpi-mini clickable" onclick="openRepeatModal()">
+      <div class="kpi-mini-label">ลูกค้าซื้อซ้ำ</div>
+      <div class="kpi-mini-value" id="kpiRepeat">—</div>
+    </div>
+    <div class="kpi-mini">
+      <div class="kpi-mini-label">เฉลี่ยครั้ง/คน</div>
+      <div class="kpi-mini-value" id="kpiAvgOrders">—</div>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" oninput="onSearchInput(this.value)" placeholder="ค้นหาชื่อลูกค้า หรือเบอร์โทร...">
+    <select class="sort-select" id="sortSelect" onchange="onSortChange(this.value)">
+      <option value="revenue">ยอดซื้อสูงสุด</option>
+      <option value="count">ซื้อบ่อยสุด</option>
+      <option value="recent">ซื้อล่าสุด</option>
+    </select>
+  </div>
+
+  <div id="content"><div class="loading-state">กำลังโหลดข้อมูล...</div></div>
+</div>
+
+<script>
+function parseTimestamp(str) {
+  if (!str || str === "-") return null;
+  const d = new Date(str);
+  if (!isNaN(d)) {
+    if (d.getFullYear() > 2500) {
+      return new Date(d.getFullYear() - 543, d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
+    }
+    return d;
+  }
+  // Thai locale format: "D/M/YYYY HH:MM:SS" with Buddhist year (e.g. "2/7/2569 17:37:21")
+  const m = String(str).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const year = parseInt(m[3]) > 2500 ? parseInt(m[3]) - 543 : parseInt(m[3]);
+    return new Date(year, parseInt(m[2]) - 1, parseInt(m[1]), parseInt(m[4]), parseInt(m[5]), parseInt(m[6] || 0));
+  }
+  return null;
+}
+
+function parseTotal(str) {
+  return parseInt((str || "0").toString().replace(/[^0-9]/g, "")) || 0;
+}
+
+function parseItems(str) {
+  return (str || "").split(",").map(s => {
+    const m = s.trim().match(/^(.+?)\s*x(\d+)$/i);
+    if (!m) return null;
+    return { name: m[1].trim(), qty: parseInt(m[2]) };
+  }).filter(Boolean);
+}
+
+function itemCount(str) {
+  return parseItems(str).reduce((s, i) => s + i.qty, 0);
+}
+
+async function loadData() {
+  const token = sessionStorage.getItem("dash_token");
+  const res = await fetch(API_BASE + "/api/admin/orders", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    sessionStorage.removeItem("dash_token");
+    location.reload();
+    throw new Error("Unauthorized");
+  }
+  const json = await res.json();
+  return (json.orders || []).map(o => {
+    const normalized = {};
+    Object.keys(o).forEach(k => normalized[k.toLowerCase()] = o[k]);
+    return normalized;
+  });
+}
+
+function groupByCustomer(orders) {
+  const map = new Map();
+  orders.forEach(o => {
+    const key = o.name || "-";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(o);
+  });
+  return Array.from(map.values()).map(list => {
+    list.sort((a, b) => (parseTimestamp(b.timestamp) || 0) - (parseTimestamp(a.timestamp) || 0));
+    return {
+      name: list[0].name || "-",
+      phone: list[0].phone,
+      address: list[0].address,
+      orders: list,
+      orderCount: list.length,
+      totalRevenue: list.reduce((s, o) => s + parseTotal(o.total), 0),
+      totalItems: list.reduce((s, o) => s + itemCount(o.items), 0),
+      firstOrder: parseTimestamp(list[list.length - 1].timestamp),
+      lastOrder: parseTimestamp(list[0].timestamp),
+    };
+  });
+}
+
+let searchQuery = "";
+function onSearchInput(val) {
+  searchQuery = val.trim().toLowerCase();
+  renderList();
+}
+let sortMode = "revenue";
+function onSortChange(val) {
+  sortMode = val;
+  renderList();
+}
+
+function renderList() {
+  let list = window._customers || [];
+  if (searchQuery) {
+    list = list.filter(c => (c.name || "").toLowerCase().includes(searchQuery) || (c.phone || "").toString().includes(searchQuery));
+  }
+  const sorted = [...list].sort((a, b) => {
+    if (sortMode === "count") return b.orderCount - a.orderCount;
+    if (sortMode === "recent") return (b.lastOrder || 0) - (a.lastOrder || 0);
+    return b.totalRevenue - a.totalRevenue;
+  });
+  window._sortedCustomers = sorted;
+
+  const rankMeta = ["🥇 อันดับ 1 ซื้อเยอะสุด", "🥈 อันดับ 2 ซื้อเยอะสุด", "🥉 อันดับ 3 ซื้อเยอะสุด"];
+  document.getElementById("content").innerHTML = `<div class="cust-list">` + (sorted.map((c, i) => {
+    const rankIdx = window._top3 ? window._top3.indexOf(c) : -1;
+    const trophy = rankIdx > -1 ? `<span class="cust-trophy" title="${rankMeta[rankIdx]}">${["🥇", "🥈", "🥉"][rankIdx]}</span>` : "";
+    return `
+    <div class="cust-row${rankIdx > -1 ? ` rank-${rankIdx + 1}` : ""}" onclick="openCustModal(${i})">
+      <div class="cust-top">
+        <div class="cust-name">${trophy}${c.name}${c.orderCount > 1 ? `<span class="cust-badge">ลูกค้าประจำ</span>` : ""}</div>
+        <div class="cust-total">฿${c.totalRevenue.toLocaleString()}</div>
+      </div>
+      <div class="cust-meta">
+        <span>📞 ${c.phone || "—"}</span>
+        <span>📦 ${c.orderCount} ครั้ง</span>
+        <span>🎂 ${c.totalItems.toLocaleString()} ชิ้น</span>
+        ${c.address && c.address !== "-" ? `<span>📍 ${c.address}</span>` : ""}
+      </div>
+      <div class="cust-dates">
+        ซื้อครั้งแรก ${c.firstOrder ? c.firstOrder.toLocaleDateString("th-TH", { dateStyle: "medium" }) : "—"}
+        ${c.orderCount > 1 && c.lastOrder ? ` · ล่าสุด ${c.lastOrder.toLocaleDateString("th-TH", { dateStyle: "medium" })}` : ""}
+      </div>
+    </div>`;
+  }).join("") || `<div class="empty">ไม่พบลูกค้า</div>`) + `</div>`;
+}
+
+function openCustModal(i) {
+  const c = window._sortedCustomers[i];
+  if (c) showCustomerHistory(c);
+}
+
+function showCustomerHistory(c) {
+  document.getElementById("modalTitle").textContent = c.name;
+  document.getElementById("modalSub").textContent =
+    `📞 ${c.phone || "—"} · ${c.orderCount} ครั้ง · ฿${c.totalRevenue.toLocaleString()} · ${c.totalItems.toLocaleString()} ชิ้น` +
+    (c.address && c.address !== "-" ? ` · 📍 ${c.address}` : "");
+
+  document.getElementById("modalBody").innerHTML = c.orders.map(o => {
+    const ts = parseTimestamp(o.timestamp);
+    return `
+    <div class="hist-row">
+      <div class="hist-top">
+        <span>${ts ? ts.toLocaleDateString("th-TH", { dateStyle: "medium" }) : "—"}</span>
+        <span>${o.total || "-"}</span>
+      </div>
+      <div class="hist-meta">🎂 ${o.items || "-"}${o.address && o.address !== "-" ? " · 📍 " + o.address : ""}</div>
+      ${o.note && o.note !== "-" ? `<div class="hist-note">📝 ${o.note}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  document.getElementById("custModal").classList.add("open");
+}
+function closeCustModal() {
+  document.getElementById("custModal").classList.remove("open");
+}
+
+function openRepeatModal() {
+  const all = window._customers || [];
+  const repeats = all.filter(c => c.orderCount > 1).sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+  const totalRevenue = all.reduce((s, c) => s + c.totalRevenue, 0);
+  const repeatRevenue = repeats.reduce((s, c) => s + c.totalRevenue, 0);
+  const rate = all.length ? (repeats.length / all.length * 100) : 0;
+  const revenueShare = totalRevenue ? (repeatRevenue / totalRevenue * 100) : 0;
+
+  document.getElementById("repeatModalSub").textContent = `${repeats.length} คน จากลูกค้าทั้งหมด ${all.length} คน`;
+  document.getElementById("repeatRateValue").textContent = `${rate.toFixed(0)}%`;
+  document.getElementById("repeatRevenueShareValue").textContent = `${revenueShare.toFixed(0)}%`;
+
+  document.getElementById("repeatList").innerHTML = repeats.map((c, i) => `
+    <div class="repeat-row" onclick="closeRepeatModal(); showCustomerHistory(window._repeatCustomers[${i}]);">
+      <div>
+        <div class="repeat-row-name">${c.name}</div>
+        <div class="repeat-row-meta">📦 ${c.orderCount} ครั้ง · ล่าสุด ${c.lastOrder ? c.lastOrder.toLocaleDateString("th-TH", { dateStyle: "medium" }) : "—"}</div>
+      </div>
+      <div class="repeat-row-total">฿${c.totalRevenue.toLocaleString()}</div>
+    </div>`).join("") || `<div class="empty">ไม่มีลูกค้าซื้อซ้ำ</div>`;
+
+  window._repeatCustomers = repeats;
+  document.getElementById("repeatModal").classList.add("open");
+}
+function closeRepeatModal() {
+  document.getElementById("repeatModal").classList.remove("open");
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    document.getElementById("custModal").classList.remove("open");
+    document.getElementById("repeatModal").classList.remove("open");
+  }
+});
+
+async function init() {
+  try {
+    const orders = await loadData();
+    const customers = groupByCustomer(orders);
+    window._customers = customers;
+    window._top3 = [...customers].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 3);
+
+    const repeatCount = customers.filter(c => c.orderCount > 1).length;
+    const avgOrders = customers.length ? (orders.length / customers.length) : 0;
+    document.getElementById("kpiCustomers").textContent = customers.length.toLocaleString();
+    document.getElementById("kpiRepeat").textContent = repeatCount.toLocaleString();
+    document.getElementById("kpiAvgOrders").textContent = avgOrders.toFixed(1);
+
+    renderList();
+  } catch (e) {
+    console.error(e);
+    document.getElementById("content").innerHTML = `
+      <div class="error-state">
+        โหลดข้อมูลไม่ได้ — ตรวจสอบว่า Apps Script deploy ถูกต้องและตั้งสิทธิ์เป็น <b>"ทุกคน"</b><br><br>
+        <button onclick="init()" style="margin-top:12px;padding:8px 20px;border-radius:8px;border:none;background:#c0392b;color:#fff;cursor:pointer;font-weight:700;">ลองใหม่</button>
+      </div>`;
+  }
+}
+
+if (sessionStorage.getItem("dash_token")) init();
+</script>
+</body>
+</html>

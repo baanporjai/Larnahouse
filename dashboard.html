@@ -78,15 +78,24 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   header {
     background: var(--choco-dark);
     color: #fff;
-    padding: 16px 28px;
+    padding: 12px 28px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
+    flex-wrap: wrap;
     position: sticky;
     top: 0;
     z-index: 10;
   }
-  header h1 { font-size: 17px; font-weight: 800; }
+  header h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+  header .nav-logo { height: 32px; width: auto; display: block; }
+  .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; }
+  .page-tab {
+    padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
+    text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
+  }
+  .page-tab.active { background: var(--frost); color: #fff; }
+  .page-tab:not(.active):hover { color: #fff; }
   .header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
   #lastUpdated { font-size: 12px; opacity: 0.5; }
   .refresh-btn {
@@ -202,6 +211,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .order-row:last-child { border-bottom: none; }
   .order-name { font-weight: 700; font-size: 14px; }
   .order-meta { font-size: 12px; color: var(--choco); opacity: 0.55; margin-top: 3px; }
+  .order-date-label { font-size: 12px; color: var(--frost); font-weight: 700; margin-top: 3px; }
   .order-items { font-size: 13px; color: var(--choco); margin-top: 5px; }
   .order-note { font-size: 12px; color: #888; margin-top: 3px; }
   .order-total {
@@ -307,7 +317,11 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 <body>
 
 <header>
-  <h1>📊 Frozen Larna Cake — ยอดขาย</h1>
+  <h1><img class="nav-logo" src="https://ik.imagekit.io/p3u6ogh1n/tr:w-200,f-webp,quality-100/carousel-section/02655820-e466-4648-8caa-6a415a7d2dbf.png" alt="Larna House">📊 ยอดขาย</h1>
+  <div class="page-tabs">
+    <span class="page-tab active">แดชบอร์ด</span>
+    <a href="/customers.html" class="page-tab">ประวัติลูกค้า</a>
+  </div>
   <div class="header-right">
     <span id="lastUpdated">กำลังโหลด...</span>
     <button class="refresh-btn" onclick="init()">🔄 รีเฟรช</button>
@@ -448,13 +462,19 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") document.get
 
 const STATUS_CYCLE = ["รอยืนยัน", "จัดเตรียมแล้ว", "แพ็คแล้ว", "ส่งแล้ว"];
 
-function orderRowHTML(o) {
+function orderRowHTML(o, opts) {
+  opts = opts || {};
   const status = o.status || "รอยืนยัน";
   const row = String(o._row || "");
+  const dateLabel = opts.showDate ? (() => {
+    const d = getDeliveryDateOnly(o);
+    return d ? `<div class="order-date-label">📅 ${formatDateTH(d)}</div>` : "";
+  })() : "";
   return `
     <div class="order-row${status === 'ส่งแล้ว' ? ' sent' : ''}">
       <div>
         <div class="order-name">${o.name || "-"}</div>
+        ${dateLabel}
         <div class="order-meta">📞 ${o.phone || "-"} &nbsp;·&nbsp; 📍 ${o.address && o.address !== "-" ? o.address : "รับที่ร้าน"}</div>
         <div class="order-items">🛍 ${o.items || "-"}</div>
         ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
@@ -524,18 +544,33 @@ function isTodayOrder(o) {
   return ts ? ts.toISOString().slice(0, 10) === today : false;
 }
 
-function getOrderDate(o) {
-  if (o.date && o.date !== "-") {
-    const d = parseTimestamp(o.date);
-    if (d) return d.toISOString().slice(0, 10);
-  }
-  const ts = parseTimestamp(o.timestamp);
-  return ts ? ts.toISOString().slice(0, 10) : null;
+function tomorrowISO() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
-function isUpcomingOrder(o) {
-  const d = getOrderDate(o);
-  return d && d > todayISO() && o.status !== "ส่งแล้ว";
+// ไม่ fallback ไปใช้ timestamp เหมือน getOrderDate — ใช้เฉพาะ "วันที่ต้องการของ" (o.date)
+// ที่ลูกค้าระบุมาจริงๆ เพราะออเดอร์วันนี้ vs พรุ่งนี้/ค้างจัดส่ง ต้องอิงวันที่ตั้งใจจะส่งเท่านั้น
+function getDeliveryDateOnly(o) {
+  if (!o.date || o.date === "-") return null;
+  const d = parseTimestamp(o.date);
+  return d ? d.toISOString().slice(0, 10) : null;
+}
+
+function isTomorrowOrder(o) {
+  return getDeliveryDateOnly(o) === tomorrowISO();
+}
+
+// ค้างจัดส่ง = มีวันที่ต้องการของระบุไว้ แต่ไม่ใช่วันนี้/พรุ่งนี้ (เลยกำหนดแล้ว หรือสั่งล่วงหน้าไกลกว่านั้น)
+// และยังไม่ได้ส่ง — วันนี้/พรุ่งนี้ไม่เอามาซ้ำเพราะมี section ของตัวเองแล้ว
+function isOverdueOrder(o) {
+  const d = getDeliveryDateOnly(o);
+  if (!d) return false;
+  if (d >= todayISO() && d <= tomorrowISO()) return false;
+  const status = o.status || "";
+  if (status.includes("ยกเลิก")) return false;
+  return status !== "ส่งแล้ว";
 }
 
 function formatDateTH(iso) {
@@ -573,22 +608,13 @@ function render(orders) {
   // รายการที่แสดงจริง — กรองตามคำค้นหาด้วย
   const todayOrdersFiltered = todayOrders.filter(matchesSearch);
 
-  // Upcoming orders grouped by date
-  const upcomingOrders = orders.filter(isUpcomingOrder).filter(matchesSearch);
-  const upcomingByDate = {};
-  upcomingOrders.forEach(o => {
-    const d = getOrderDate(o);
-    if (!upcomingByDate[d]) upcomingByDate[d] = [];
-    upcomingByDate[d].push(o);
-  });
-  const upcomingHTML = Object.keys(upcomingByDate).sort().map(d => `
-    <div class="card" style="margin-top:20px;">
-      <div class="section-header">
-        <h3>📅 ${formatDateTH(d)}</h3>
-        <span class="count-badge">${upcomingByDate[d].length} ออเดอร์</span>
-      </div>
-      ${upcomingByDate[d].map(o => orderRowHTML(o)).join("")}
-    </div>`).join("") || "";
+  // รายการรอจัดส่งพรุ่งนี้ — มี "วันที่ต้องการของ" ตรงกับพรุ่งนี้พอดี
+  const tomorrowOrders = orders.filter(isTomorrowOrder).filter(matchesSearch);
+
+  // รายการค้างยังรอจัดส่ง — เลยกำหนดแล้ว หรือสั่งล่วงหน้าไกลกว่าพรุ่งนี้ แต่ยังไม่ส่ง
+  // เรียงจากวันที่เก่าสุดก่อน เพื่อให้รายการที่ค้างนานที่สุดขึ้นบนสุด
+  const overdueOrders = orders.filter(isOverdueOrder).filter(matchesSearch)
+    .sort((a, b) => (getDeliveryDateOnly(a) || "").localeCompare(getDeliveryDateOnly(b) || ""));
 
   // Flavor counts
   const flavorMap = {};
@@ -620,7 +646,40 @@ function render(orders) {
 
   // Render HTML
   document.getElementById("content").innerHTML = `
-    <div class="stats">
+    <div class="card">
+      <div class="section-header">
+        <h3>🚚 รายการจัดส่งวันนี้</h3>
+        <span class="count-badge">${todayOrdersFiltered.length} ออเดอร์</span>
+      </div>
+      ${todayOrdersFiltered.length === 0
+        ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
+        : todayOrdersFiltered.map(o => orderRowHTML(o)).join("")
+      }
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="section-header">
+        <h3>📦 รายการรอจัดส่งพรุ่งนี้</h3>
+        <span class="count-badge">${tomorrowOrders.length} ออเดอร์</span>
+      </div>
+      ${tomorrowOrders.length === 0
+        ? '<div class="empty">ยังไม่มีออเดอร์รอจัดส่งพรุ่งนี้</div>'
+        : tomorrowOrders.map(o => orderRowHTML(o)).join("")
+      }
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div class="section-header">
+        <h3>⏰ รายการค้างยังรอจัดส่ง</h3>
+        <span class="count-badge">${overdueOrders.length} ออเดอร์</span>
+      </div>
+      ${overdueOrders.length === 0
+        ? '<div class="empty">ไม่มีรายการค้าง</div>'
+        : overdueOrders.map(o => orderRowHTML(o, { showDate: true })).join("")
+      }
+    </div>
+
+    <div class="stats" style="margin-top:20px;">
       <div class="stat-card highlight" onclick="openModal('revenue')">
         <div class="stat-label">ยอดขายรวม ↗</div>
         <div class="stat-value">${totalRevenue.toLocaleString("th-TH")}</div>
@@ -655,19 +714,6 @@ function render(orders) {
     </div>
 
     <div class="card">
-      <div class="section-header">
-        <h3>🚚 รายการจัดส่งวันนี้</h3>
-        <span class="count-badge">${todayOrdersFiltered.length} ออเดอร์</span>
-      </div>
-      ${todayOrdersFiltered.length === 0
-        ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
-        : todayOrdersFiltered.map(o => orderRowHTML(o)).join("")
-      }
-    </div>
-
-    ${upcomingHTML}
-
-    <div class="card" style="margin-top:20px;">
       <h3>📊 เทียบกับช่วงก่อนหน้า</h3>
       ${renderComparisonHTML(orders)}
     </div>
