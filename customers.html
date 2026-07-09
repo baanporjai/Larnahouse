@@ -78,17 +78,17 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     background: var(--choco-dark);
     color: #fff;
     padding: 12px 28px;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 14px;
-    flex-wrap: wrap;
     position: sticky;
     top: 0;
     z-index: 10;
   }
   header h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
   header .nav-logo { height: 32px; width: auto; display: block; }
-  .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; }
+  .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; justify-self: center; }
   .page-tab {
     padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
     text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
@@ -190,6 +190,8 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 
   @media (max-width: 500px) {
     .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    header { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    header > div:last-child { display: none; }
   }
 </style>
 </head>
@@ -201,6 +203,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     <a href="/dashboard.html" class="page-tab">แดชบอร์ด</a>
     <span class="page-tab active">ประวัติลูกค้า</span>
   </div>
+  <div></div>
 </header>
 
 <div class="modal-overlay" id="custModal" onclick="if(event.target===this) closeCustModal()">

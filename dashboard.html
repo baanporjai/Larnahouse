@@ -79,24 +79,24 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     background: var(--choco-dark);
     color: #fff;
     padding: 12px 28px;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 14px;
-    flex-wrap: wrap;
     position: sticky;
     top: 0;
     z-index: 10;
   }
   header h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
   header .nav-logo { height: 32px; width: auto; display: block; }
-  .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; }
+  .page-tabs { display: flex; gap: 2px; background: rgba(255,255,255,.1); border-radius: 30px; padding: 4px; justify-self: center; }
   .page-tab {
     padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
     text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
   }
   .page-tab.active { background: var(--frost); color: #fff; }
   .page-tab:not(.active):hover { color: #fff; }
-  .header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .header-right { justify-self: end; display: flex; align-items: center; gap: 14px; }
   #lastUpdated { font-size: 12px; opacity: 0.5; }
   .refresh-btn {
     background: rgba(255,255,255,0.12);
@@ -221,24 +221,29 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     white-space: nowrap;
   }
 
-  .status-badge {
+  .status-select {
     display: inline-block;
     margin-top: 8px;
-    padding: 4px 12px;
+    padding: 4px 26px 4px 12px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     border: none;
-    transition: opacity .15s, transform .1s;
-    user-select: none;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 10px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+    transition: opacity .15s;
   }
-  .status-badge:hover { opacity: 0.75; transform: scale(1.04); }
-  .status-badge:active { transform: scale(0.97); }
-  .status-รอยืนยัน   { background: #fff3cd; color: #856404; }
-  .status-จัดเตรียมแล้ว { background: #cce5ff; color: #004085; }
-  .status-แพ็คแล้ว    { background: #e0d4fd; color: #5b2a86; }
-  .status-ส่งแล้ว    { background: #d4edda; color: #155724; }
+  .status-select:disabled { opacity: .6; cursor: wait; }
+  .status-รอยืนยัน   { background-color: #fff3cd; color: #856404; }
+  .status-จัดเตรียมแล้ว { background-color: #cce5ff; color: #004085; }
+  .status-แพ็คแล้ว    { background-color: #e0d4fd; color: #5b2a86; }
+  .status-ส่งแล้ว    { background-color: #d4edda; color: #155724; }
   .order-row.sent .order-name,
   .order-row.sent .order-items { opacity: 0.4; }
 
@@ -308,6 +313,8 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   @media (max-width: 680px) {
     .charts { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(2, 1fr); }
+    header { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    .header-right { justify-self: center; }
   }
   @media (max-width: 400px) {
     .stats { grid-template-columns: 1fr; }
@@ -460,7 +467,11 @@ function closeModal(e) {
 
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("modalOverlay").classList.remove("open"); });
 
-const STATUS_CYCLE = ["รอยืนยัน", "จัดเตรียมแล้ว", "แพ็คแล้ว", "ส่งแล้ว"];
+const STATUS_CODES = ["รอยืนยัน", "จัดเตรียมแล้ว", "แพ็คแล้ว", "ส่งแล้ว"];
+
+function statusOptionsHTML(current) {
+  return STATUS_CODES.map(code => `<option value="${code}" ${code === current ? "selected" : ""}>${code}</option>`).join("");
+}
 
 function orderRowHTML(o, opts) {
   opts = opts || {};
@@ -478,20 +489,19 @@ function orderRowHTML(o, opts) {
         <div class="order-meta">📞 ${o.phone || "-"} &nbsp;·&nbsp; 📍 ${o.address && o.address !== "-" ? o.address : "รับที่ร้าน"}</div>
         <div class="order-items">🛍 ${o.items || "-"}</div>
         ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
-        <button class="status-badge status-${status}" onclick="updateStatus(this,'${row}')">${status}</button>
+        <select class="status-select status-${status}" onchange="updateStatus(this,'${row}')">${statusOptionsHTML(status)}</select>
       </div>
       <div class="order-total">${o.total}</div>
     </div>`;
 }
 
-async function updateStatus(btn, row) {
-  const current = btn.textContent.trim();
-  const next = STATUS_CYCLE[(STATUS_CYCLE.indexOf(current) + 1) % STATUS_CYCLE.length];
-  btn.textContent = next;
-  btn.className = `status-badge status-${next}`;
-  const orderRow = btn.closest(".order-row");
+async function updateStatus(selectEl, row) {
+  const next = selectEl.value;
+  selectEl.className = `status-select status-${next}`;
+  const orderRow = selectEl.closest(".order-row");
   if (orderRow) orderRow.classList.toggle("sent", next === "ส่งแล้ว");
   if (!row) return;
+  selectEl.disabled = true;
   try {
     const token = sessionStorage.getItem("dash_token");
     await fetch(API_BASE + "/api/admin/update-status", {
@@ -499,7 +509,11 @@ async function updateStatus(btn, row) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ row: Number(row), status: next }),
     });
-  } catch(e) { console.log("Status update failed:", e); }
+  } catch(e) {
+    console.log("Status update failed:", e);
+  } finally {
+    selectEl.disabled = false;
+  }
 }
 
 function todayISO() {
