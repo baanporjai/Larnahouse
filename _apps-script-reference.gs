@@ -13,6 +13,17 @@ function getSheet() {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
 }
 
+// "D/M/YYYY H:MM:SS" ปีพ.ศ. — ให้ตรงกับ format เดิมที่แถวเก่าๆ ใช้อยู่แล้ว (เช่น
+// "10/7/2569 10:35:47") แทน new Date().toISOString() ซึ่งอ่านยากสำหรับคนไทย
+// dashboard ฝั่ง parseTimestamp() รองรับ format นี้อยู่แล้ว (แปลงปีพ.ศ. กลับเป็น ค.ศ. ให้)
+function formatThaiTimestamp(date) {
+  const pad = n => String(n).padStart(2, "0");
+  const d = date.getDate();
+  const m = date.getMonth() + 1;
+  const y = date.getFullYear() + 543;
+  return `${d}/${m}/${y} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function doGet() {
   const sheet = getSheet();
   const rows = sheet.getDataRange().getValues();
@@ -75,7 +86,7 @@ function doPost(e) {
     // New order
     const items = (data.items || []).map(i => `${i.name} x${i.qty}`).join(", ");
     sheet.appendRow([
-      new Date().toISOString(),
+      formatThaiTimestamp(new Date()),
       data.name || "",
       data.phone || "",
       data.address || "",

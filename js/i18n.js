@@ -188,6 +188,7 @@ const I18N = {
   order_validation_cart:   { th: "กรุณาเลือกสินค้าอย่างน้อย 1 รายการ", en: "Please choose at least one item.", zh: "请至少选择一项商品。", ko: "최소 1개 이상의 상품을 선택해 주세요." },
   order_validation_info:   { th: "กรุณากรอกชื่อและเบอร์โทรศัพท์", en: "Please enter your name and phone number.", zh: "请填写姓名和电话号码。", ko: "이름과 전화번호를 입력해 주세요." },
   order_validation_address:{ th: "กรุณากรอกที่อยู่จัดส่ง", en: "Please enter a delivery address.", zh: "请填写配送地址。", ko: "배송 주소를 입력해 주세요." },
+  order_validation_date:{ th: "กรุณากรอกวันที่ให้ถูกต้องในรูปแบบ วว/ดด/ปปปป", en: "Please enter a valid date in DD/MM/YYYY format.", zh: "请按 DD/MM/YYYY 格式填写正确的日期。", ko: "DD/MM/YYYY 형식으로 올바른 날짜를 입력해 주세요." },
 
   order_success_title:{ th: "ส่งคำสั่งซื้อสำเร็จ! 🎉", en: "Order Sent! 🎉", zh: "订单已送出！🎉", ko: "주문이 전송되었습니다! 🎉" },
   order_success_msg:  { th: "ทีมงาน Larna House ได้รับคำสั่งซื้อของคุณแล้ว จะติดต่อกลับเพื่อยืนยันการจัดส่งภายใน 24 ชั่วโมงค่ะ", en: "Larna House has received your order and will contact you to confirm delivery within 24 hours.", zh: "Larna House已收到您的订单，将在24小时内与您联系以确认配送事宜。", ko: "Larna House가 주문을 받았습니다. 24시간 내에 배송 확인을 위해 연락드리겠습니다." },

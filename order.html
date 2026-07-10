@@ -144,7 +144,7 @@
           </div>
           <div class="field">
             <label data-i18n="order_form_date">Preferred Date (optional)</label>
-            <input type="date" id="custDate">
+            <input type="text" id="custDate" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off" oninput="formatDateInput(this)">
           </div>
           <div class="field">
             <label data-i18n="order_form_note">Additional Notes (optional)</label>
@@ -317,6 +317,35 @@ function getCartLines(){
   }).filter(Boolean);
 }
 
+// พิมพ์ตัวเลขล้วนๆ แล้วแทรก "/" ให้อัตโนมัติเป็น DD/MM/YYYY — คนไทยไม่คุ้นกับ
+// MM/DD/YYYY ที่ input type="date" ของเดิมโชว์ตาม locale เบราว์เซอร์ (แก้ format
+// ตรงๆ ผ่าน HTML/CSS ไม่ได้ เลยเปลี่ยนมาเป็น text input ที่คุมรูปแบบเองแทน)
+function formatDateInput(el){
+  const digits = el.value.replace(/\D/g, "").slice(0, 8);
+  let out = digits.slice(0, 2);
+  if (digits.length > 2) out += "/" + digits.slice(2, 4);
+  if (digits.length > 4) out += "/" + digits.slice(4, 8);
+  el.value = out;
+}
+
+// คืนค่า {y,m,d} ถ้า string เป็น DD/MM/YYYY ที่เป็นวันที่จริง ไม่งั้นคืน null
+function parseDDMMYYYY(str){
+  const m = String(str || "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const d = parseInt(m[1], 10), mo = parseInt(m[2], 10), y = parseInt(m[3], 10);
+  const date = new Date(y, mo - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+  return { y, m: mo, d };
+}
+
+// แปลงเป็น "YYYY-MM-DD" (ISO) สำหรับส่งเข้า backend — dashboard/Apps Script ฝั่งรับ
+// ข้อมูลคาดหวัง format นี้ (หรือ timestamp เต็ม) ไม่ใช่ DD/MM/YYYY ที่โชว์ในฟอร์ม
+function isoFromDDMMYYYY(str){
+  const parsed = parseDDMMYYYY(str);
+  if (!parsed) return "";
+  return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
+}
+
 function validateOrder(){
   const lines = getCartLines();
   if (lines.length === 0) {
@@ -331,6 +360,11 @@ function validateOrder(){
   }
   if (!document.getElementById("custAddress").value.trim()) {
     alert(t('order_validation_address'));
+    return false;
+  }
+  const dateVal = document.getElementById("custDate").value.trim();
+  if (dateVal && !parseDDMMYYYY(dateVal)) {
+    alert(t('order_validation_date'));
     return false;
   }
   return true;
@@ -355,7 +389,7 @@ function buildOrderPayload(){
     name: document.getElementById("custName").value.trim(),
     phone: document.getElementById("custPhone").value.trim(),
     address: document.getElementById("custAddress").value.trim(),
-    date: document.getElementById("custDate").value,
+    date: isoFromDDMMYYYY(document.getElementById("custDate").value),
     note: document.getElementById("custNote").value.trim(),
   };
 }
