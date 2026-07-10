@@ -167,7 +167,7 @@ async function handleAdminUpdateStatus(request, env) {
     const sheetsRes = await fetch(env.SHEETS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'update_status', row: body.row, status: body.status }),
+      body: JSON.stringify({ action: 'update_status', row: body.row, id: body.id, status: body.status }),
       redirect: 'follow',
     });
     const text = await sheetsRes.text();
