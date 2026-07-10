@@ -78,6 +78,7 @@
 </script>
 
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
 
@@ -144,7 +145,7 @@
           </div>
           <div class="field">
             <label data-i18n="order_form_date">Preferred Date (optional)</label>
-            <input type="text" id="custDate" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off" oninput="formatDateInput(this)">
+            <input type="text" id="custDate" placeholder="DD/MM/YYYY" autocomplete="off" readonly>
           </div>
           <div class="field">
             <label data-i18n="order_form_note">Additional Notes (optional)</label>
@@ -216,6 +217,7 @@
 
 <script src="js/products.js"></script>
 <script src="js/i18n.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 const CART_KEY = "larna_cart";
 // ⚠️ Replace with your deployed Cloudflare Worker URL — see LINE-ORDER-BACKEND-SETUP.md
@@ -317,16 +319,16 @@ function getCartLines(){
   }).filter(Boolean);
 }
 
-// พิมพ์ตัวเลขล้วนๆ แล้วแทรก "/" ให้อัตโนมัติเป็น DD/MM/YYYY — คนไทยไม่คุ้นกับ
-// MM/DD/YYYY ที่ input type="date" ของเดิมโชว์ตาม locale เบราว์เซอร์ (แก้ format
-// ตรงๆ ผ่าน HTML/CSS ไม่ได้ เลยเปลี่ยนมาเป็น text input ที่คุมรูปแบบเองแทน)
-function formatDateInput(el){
-  const digits = el.value.replace(/\D/g, "").slice(0, 8);
-  let out = digits.slice(0, 2);
-  if (digits.length > 2) out += "/" + digits.slice(2, 4);
-  if (digits.length > 4) out += "/" + digits.slice(4, 8);
-  el.value = out;
-}
+// ปฏิทิน popup ให้เลือกวันที่ แทน input type="date" ของเดิมที่โชว์ MM/DD/YYYY หรือ
+// DD/MM/YYYY ตาม locale เบราว์เซอร์ (คุม format ตรงๆ ผ่าน HTML/CSS ไม่ได้) — บังคับ
+// dateFormat เป็น d/m/Y (DD/MM/YYYY) ให้แน่นอน และ readonly กันคนพิมพ์เอง เพราะเคย
+// เจอปัญหาลูกค้าพิมพ์ปี พ.ศ. (เช่น 2569) ที่โค้ดตีความเป็น ค.ศ. ตรงๆ ทำให้วันที่เพี้ยน
+flatpickr("#custDate", {
+  dateFormat: "d/m/Y",
+  minDate: "today",
+  allowInput: false,
+  disableMobile: true,
+});
 
 // คืนค่า {y,m,d} ถ้า string เป็น DD/MM/YYYY ที่เป็นวันที่จริง ไม่งั้นคืน null
 function parseDDMMYYYY(str){
@@ -443,7 +445,9 @@ function resetOrderForm(){
   document.getElementById("custName").value = "";
   document.getElementById("custPhone").value = "";
   document.getElementById("custAddress").value = "";
-  document.getElementById("custDate").value = "";
+  const dateInput = document.getElementById("custDate");
+  if (dateInput._flatpickr) dateInput._flatpickr.clear();
+  else dateInput.value = "";
   document.getElementById("custNote").value = "";
   document.getElementById("orderSuccessStage").style.display = "none";
   document.getElementById("orderFormStage").style.display = "";
