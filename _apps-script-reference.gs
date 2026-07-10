@@ -2,10 +2,19 @@
 // from here. This file exists only so the code is versioned somewhere; paste
 // it into the Sheet's actual Extensions > Apps Script editor to deploy it.
 
+const SHEET_ID = "1xisQcDei86iD0a4E6_gtw41zaf1OQXMLjzlO3YREVtU";
 const SHEET_NAME = "Orders";
 
+// เปิดสเปรดชีตด้วย ID ตรงๆ แทน getActiveSpreadsheet() เพราะ getActiveSpreadsheet()
+// คืนค่า null ได้ถ้ารันจาก Apps Script editor โดยตรง (ไม่ได้มาจาก trigger ของสเปรดชีต
+// นั้นๆ) — เจอปัญหานี้ตอนรัน backfillMissingIds() แล้ว error "Cannot read properties
+// of null (reading 'getRange')" เพราะ sheet เป็น null
+function getSheet() {
+  return SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
+}
+
 function doGet() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const sheet = getSheet();
   const rows = sheet.getDataRange().getValues();
   const headers = rows[0].map(h => h.toString().toLowerCase());
   const orders = rows.slice(1).map((r, i) => {
@@ -22,7 +31,7 @@ function doGet() {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    const sheet = getSheet();
 
     if (data.action === "update_status") {
       // อ่านหัวคอลัมน์จริงแล้วหา column ของ "id" กับ "status" แบบไดนามิก แทนเลขคอลัมน์ตายตัว (9)
@@ -93,7 +102,7 @@ function doPost(e) {
 // that don't have one yet. Safe to run multiple times — skips rows that
 // already have an id.
 function backfillMissingIds() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const sheet = getSheet();
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
     .map(h => h.toString().trim().toLowerCase());
   const idCol = headers.indexOf("id") + 1;
