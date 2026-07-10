@@ -164,11 +164,17 @@ async function handleAdminUpdateStatus(request, env) {
   }
 
   try {
-    await fetch(env.SHEETS_URL, {
+    const sheetsRes = await fetch(env.SHEETS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'update_status', row: body.row, status: body.status }),
+      redirect: 'follow',
     });
+    const text = await sheetsRes.text();
+    if (!sheetsRes.ok) {
+      console.log('Sheets update_status rejected:', sheetsRes.status, text);
+      return json({ ok: false, error: 'Sheet rejected the update' }, 502, CORS_HEADERS);
+    }
     return json({ ok: true }, 200, CORS_HEADERS);
   } catch (err) {
     console.log('Status update proxy error:', err);
