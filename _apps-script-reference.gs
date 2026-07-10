@@ -16,7 +16,7 @@ function getSheet() {
 function doGet() {
   const sheet = getSheet();
   const rows = sheet.getDataRange().getValues();
-  const headers = rows[0].map(h => h.toString().toLowerCase());
+  const headers = rows[0].map(h => h.toString().trim().toLowerCase());
   const orders = rows.slice(1).map((r, i) => {
     const o = { _row: i + 2 };
     headers.forEach((h, j) => o[h] = r[j]);
