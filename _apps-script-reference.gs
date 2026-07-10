@@ -13,9 +13,12 @@ function getSheet() {
   return SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
 }
 
-// "D/M/YYYY H:MM:SS" ปีพ.ศ. — ให้ตรงกับ format เดิมที่แถวเก่าๆ ใช้อยู่แล้ว (เช่น
-// "10/7/2569 10:35:47") แทน new Date().toISOString() ซึ่งอ่านยากสำหรับคนไทย
-// dashboard ฝั่ง parseTimestamp() รองรับ format นี้อยู่แล้ว (แปลงปีพ.ศ. กลับเป็น ค.ศ. ให้)
+// แปลง Date object เป็น "D/M/YYYY H:MM:SS" ปีพ.ศ. (เช่น "10/7/2569 10:35:47") —
+// ให้ตรงกับ format ที่ dashboard ฝั่ง parseTimestamp() รองรับอยู่แล้ว (แปลงปีพ.ศ.
+// กลับเป็น ค.ศ. ให้) ใช้ตอน "อ่าน" ข้อมูลออกไปแสดงผลเท่านั้น — ตอน "เขียน" ลงชีต
+// ให้เก็บเป็น Date object จริงๆ เสมอ (ดู doPost) เพราะถ้าเขียนเป็น string
+// "10/7/2569 ..." ตรงๆ, Sheets จะพยายาม auto-parse เป็นวันที่ให้เอง แต่ไม่รู้จัก
+// ปีพ.ศ. เลยตีความ "2569" เป็นปี ค.ศ. ตรงๆ กลายเป็นวันที่ผิดไปกว่า 500 ปี
 function formatThaiTimestamp(date) {
   const pad = n => String(n).padStart(2, "0");
   const d = date.getDate();
@@ -32,6 +35,10 @@ function doGet() {
     const o = { _row: i + 2 };
     headers.forEach((h, j) => o[h] = r[j]);
     if (!o.status) o.status = "รอยืนยัน";
+    // ถ้า Sheets เก็บ timestamp เป็น Date object จริง (ปกติของคอลัมน์ date/time) ให้
+    // แปลงเป็น string แบบไทยตรงนี้ก่อนส่งออกไป — ถ้าเป็น string อยู่แล้ว (แถวเก่าที่
+    // เคยพิมพ์มือ) ปล่อยผ่านตามเดิม
+    if (o.timestamp instanceof Date) o.timestamp = formatThaiTimestamp(o.timestamp);
     return o;
   });
   return ContentService
@@ -86,7 +93,7 @@ function doPost(e) {
     // New order
     const items = (data.items || []).map(i => `${i.name} x${i.qty}`).join(", ");
     sheet.appendRow([
-      formatThaiTimestamp(new Date()),
+      new Date(),
       data.name || "",
       data.phone || "",
       data.address || "",
