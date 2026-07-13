@@ -15,6 +15,10 @@
  *   SHEETS_URL                 — Apps Script Web App URL (orders sheet)
  *   ADMIN_PIN                  — PIN for dashboard.html
  *   SESSION_SECRET             — long random string, signs admin session tokens
+ *   EXPENSES_SHEET_URL         — Apps Script Web App URL for the "Expenses" tab
+ *                                (accounting.html — cost/expense tracking, separate
+ *                                standalone Apps Script project, see
+ *                                _expense-apps-script-reference.gs)
  *
  * See LINE-ORDER-BACKEND-SETUP.md for full setup steps.
  */
@@ -49,6 +53,14 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/api/admin/update-status') {
       return handleAdminUpdateStatus(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/admin/expenses') {
+      return handleAdminExpenses(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/admin/expenses') {
+      return handleAdminExpenseWrite(request, env);
     }
 
     return json({ ok: false, error: 'Not found' }, 404, CORS_HEADERS);
@@ -179,6 +191,65 @@ async function handleAdminUpdateStatus(request, env) {
   } catch (err) {
     console.log('Status update proxy error:', err);
     return json({ ok: false, error: 'Failed to update status' }, 502, CORS_HEADERS);
+  }
+}
+
+// อ่านรายการต้นทุน/ค่าใช้จ่าย (หน้า accounting.html) — proxy JSON ตรงๆ แบบเดียวกับ handleAdminOrders
+async function handleAdminExpenses(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.EXPENSES_SHEET_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  try {
+    const res = await fetch(env.EXPENSES_SHEET_URL);
+    const text = await res.text();
+    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.log('Expenses sheet proxy error:', err);
+    return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
+  }
+}
+
+// เขียนรายการต้นทุน/ค่าใช้จ่าย (เพิ่ม/แก้ไข/ลบ) — ต้องผ่าน PIN token เพราะเป็นข้อมูลการเงินที่กระทบยอดกำไร
+// ต่างจาก update-status ที่ยิงตรงจาก dashboard.html โดยไม่ auth (เหมาะกับสถานะออเดอร์ซึ่งความเสี่ยงต่ำ) —
+// ที่นี่ให้ Worker เป็นตัวกลางยืนยัน token ก่อนเสมอ แล้วค่อย forward ไป Apps Script แทน
+async function handleAdminExpenseWrite(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.EXPENSES_SHEET_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ success: false, error: 'Invalid JSON' }, 400, CORS_HEADERS);
+  }
+
+  const action = (data.action === 'update' || data.action === 'delete') ? data.action : 'add';
+
+  if (action === 'add') {
+    if (!data.id || !data.type || !data.category || !data.amount || !data.date) {
+      return json({ success: false, error: 'Missing required fields' }, 400, CORS_HEADERS);
+    }
+    if (data.type !== 'cogs' && data.type !== 'opex') {
+      return json({ success: false, error: 'Invalid type' }, 400, CORS_HEADERS);
+    }
+  } else if (!data.id) {
+    return json({ success: false, error: 'Missing id' }, 400, CORS_HEADERS);
+  }
+
+  try {
+    const res = await fetch(env.EXPENSES_SHEET_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ ...data, action }),
+      redirect: 'follow',
+    });
+    const result = await res.json().catch(() => ({ success: res.ok }));
+    return json(result, result.success === false ? 502 : 200, CORS_HEADERS);
+  } catch (err) {
+    console.log('Expense webhook error:', err);
+    return json({ success: false, error: 'Failed to save expense' }, 502, CORS_HEADERS);
   }
 }
 
