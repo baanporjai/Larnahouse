@@ -311,6 +311,12 @@ function parseTimestamp(str) {
 
 function monthKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
 
+// DD/MM/YYYY ปีพ.ศ. (เช่น "10/07/2569")
+function formatDateDMY(date) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear() + 543}`;
+}
+
 function parseTotal(str) {
   return parseInt((str || "0").toString().replace(/[^0-9]/g, "")) || 0;
 }
@@ -453,8 +459,8 @@ function renderList() {
         ${c.address && c.address !== "-" ? `<span>📍 ${c.address}</span>` : ""}
       </div>
       <div class="cust-dates">
-        ซื้อครั้งแรก ${c.firstOrder ? c.firstOrder.toLocaleDateString("th-TH", { dateStyle: "medium" }) : "—"}
-        ${c.orderCount > 1 && c.lastOrder ? ` · ล่าสุด ${c.lastOrder.toLocaleDateString("th-TH", { dateStyle: "medium" })}` : ""}
+        ซื้อครั้งแรก ${c.firstOrder ? formatDateDMY(c.firstOrder) : "—"}
+        ${c.orderCount > 1 && c.lastOrder ? ` · ล่าสุด ${formatDateDMY(c.lastOrder)}` : ""}
       </div>
     </div>`;
   }).join("") || `<div class="empty">ไม่พบลูกค้า</div>`) + `</div>`;
@@ -476,7 +482,7 @@ function showCustomerHistory(c) {
     return `
     <div class="hist-row">
       <div class="hist-top">
-        <span>${ts ? ts.toLocaleDateString("th-TH", { dateStyle: "medium" }) : "—"}</span>
+        <span>${ts ? formatDateDMY(ts) : "—"}</span>
         <span>${o.total || "-"}</span>
       </div>
       <div class="hist-meta">🎂 ${o.items || "-"}${o.address && o.address !== "-" ? " · 📍 " + o.address : ""}</div>
@@ -507,7 +513,7 @@ function openRepeatModal() {
     <div class="repeat-row" onclick="closeRepeatModal(); showCustomerHistory(window._repeatCustomers[${i}]);">
       <div>
         <div class="repeat-row-name">${c.name}</div>
-        <div class="repeat-row-meta">📦 ${c.orderCount} ครั้ง · ล่าสุด ${c.lastOrder ? c.lastOrder.toLocaleDateString("th-TH", { dateStyle: "medium" }) : "—"}</div>
+        <div class="repeat-row-meta">📦 ${c.orderCount} ครั้ง · ล่าสุด ${c.lastOrder ? formatDateDMY(c.lastOrder) : "—"}</div>
       </div>
       <div class="repeat-row-total">฿${c.totalRevenue.toLocaleString()}</div>
     </div>`).join("") || `<div class="empty">ไม่มีลูกค้าซื้อซ้ำ</div>`;

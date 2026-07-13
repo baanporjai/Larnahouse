@@ -329,6 +329,12 @@ function formatDateISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// DD/MM/YYYY ปีพ.ศ. (เช่น "10/07/2569") — สำหรับแสดงผล ต่างจาก formatDateISO ที่ใช้กับ <input type="date">
+function formatDateDMY(date) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear() + 543}`;
+}
+
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -547,7 +553,7 @@ function renderExpenseList() {
       <div>
         <span class="type-badge ${r.type}">${r.type === "cogs" ? "ต้นทุน" : "รายจ่าย"}</span>
         <div class="order-name">${escapeHtml(r.category)}${r.description ? " — " + escapeHtml(r.description) : ""}</div>
-        <div class="order-meta">${new Date(r.date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}</div>
+        <div class="order-meta">${formatDateDMY(new Date(r.date + "T00:00:00"))}</div>
       </div>
       <div class="order-total">${r.amount.toLocaleString("th-TH")} THB</div>
       <button class="del-btn" onclick="event.stopPropagation(); deleteExpenseRow('${r.id}')" title="ลบ">🗑️</button>
