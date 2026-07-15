@@ -137,6 +137,10 @@ const I18N = {
   detail_box:      { th: "ขนาดกล่อง", en: "Box Size", zh: "包装尺寸", ko: "포장 크기" },
   detail_buy:      { th: "หาซื้อที่ตู้ vending / ติดต่อสั่งซื้อ", en: "Find at Vending Machine / Order via LINE", zh: "前往自助售货机购买 / 通过LINE订购", ko: "자판기에서 구매 / LINE으로 문의" },
   detail_line:     { th: "แชทผ่าน LINE", en: "Chat on LINE", zh: "LINE 咨询", ko: "LINE으로 문의" },
+  detail_layers_title: { th: "3 ชั้นรสสัมผัส", en: "3 Layers of Texture", zh: "三层口感", ko: "3가지 레이어의 식감" },
+  detail_video_title:  { th: "ดูวิดีโอแนะนำ", en: "Watch the Video", zh: "观看视频", ko: "영상 보기" },
+  detail_tips_title:   { th: "ทานให้อร่อยที่สุด", en: "For the Best Experience", zh: "这样吃最过瘾", ko: "가장 맛있게 즐기는 법" },
+  detail_faq_title:    { th: "คำถามที่พบบ่อย", en: "Frequently Asked Questions", zh: "常见问题", ko: "자주 묻는 질문" },
   related_title:   { th: "รสชาติอื่นที่น่าลอง", en: "More Flavors to Try", zh: "更多口味推荐", ko: "더 다양한 맛 보기" },
 
   care1_q:         { th: "เก็บรักษา Frozen Larna Cake อย่างไร?", en: "How do I store Frozen Larna Cake?", zh: "如何保存 Frozen Larna Cake？", ko: "Frozen Larna Cake는 어떻게 보관하나요?" },

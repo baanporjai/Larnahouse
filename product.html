@@ -56,6 +56,8 @@
       <!-- filled by JS -->
     </div>
 
+    <div id="productExtra"><!-- filled by JS, only for products with extra content --></div>
+
     <div class="care-section">
       <div class="care-block">
         <div class="care-q">
@@ -161,6 +163,52 @@ function renderProductDetail(){
       </div>
     </div>
   `;
+
+  let extraHtml = "";
+  if (p.video) {
+    extraHtml += `
+      <div style="margin-top:56px;max-width:360px;">
+        <h3 class="section-title" style="font-size:22px;margin-bottom:16px;">${t('detail_video_title')}</h3>
+        <div style="position:relative;width:100%;padding-bottom:177.78%;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);">
+          <iframe src="https://www.youtube.com/embed/${p.video}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen title="${p.name[currentLang]}"></iframe>
+        </div>
+      </div>`;
+  }
+  if (p.layers && p.layers.length) {
+    extraHtml += `
+      <div style="margin-top:56px;">
+        <h3 class="section-title" style="font-size:24px;margin-bottom:22px;">${t('detail_layers_title')}</h3>
+        <div class="features-grid" style="grid-template-columns:repeat(3,1fr);">
+          ${p.layers.map(l => `
+            <div class="feature-card">
+              <div class="icon">${l.icon}</div>
+              <h4>${l.h[currentLang]}</h4>
+              <p>${l.p[currentLang]}</p>
+            </div>`).join("")}
+        </div>
+      </div>`;
+  }
+  if (p.enjoyTips && p.enjoyTips.length) {
+    extraHtml += `
+      <div style="margin-top:40px;max-width:720px;">
+        <h3 class="section-title" style="font-size:22px;margin-bottom:16px;">${t('detail_tips_title')}</h3>
+        <ul class="care-list">
+          ${p.enjoyTips.map(tip => `<li>💡 ${tip[currentLang]}</li>`).join("")}
+        </ul>
+      </div>`;
+  }
+  if (p.productFaq && p.productFaq.length) {
+    extraHtml += `
+      <div style="margin-top:40px;max-width:720px;">
+        <h3 class="section-title" style="font-size:22px;margin-bottom:6px;">${t('detail_faq_title')}</h3>
+        ${p.productFaq.map(f => `
+          <div class="faq-item open">
+            <div class="faq-q" style="cursor:default;"><span>${f.q[currentLang]}</span></div>
+            <div class="faq-a">${f.a[currentLang]}</div>
+          </div>`).join("")}
+      </div>`;
+  }
+  document.getElementById("productExtra").innerHTML = extraHtml;
 }
 
 function switchImg(el, src){

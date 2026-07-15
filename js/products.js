@@ -92,6 +92,7 @@ const PRODUCTS = [
     price: 60,
     weight: "60 g",
     box: "6.2 × 9.5 × 3.3 cm",
+    video: "74taRlPC1eo",
     badge: { th: "รสไทย", en: "Thai Flavor", zh: "泰式风味", ko: "태국 풍미" },
     img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/d275d3b0-7f44-447d-a6d2-7b069ae533c9.png",
     img2: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/5d9e14ba-aa60-4cf2-b0b0-93b59e6d8b4f.jpeg",
@@ -204,6 +205,7 @@ const PRODUCTS = [
     box: "6.2 × 9.5 × 3.3 cm",
     badge: { th: "รางวัล 2024", en: "Award 2024", zh: "2024获奖", ko: "2024 수상작" },
     img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/cdb3545b-9fc4-4931-a8ae-bb4f2d96e7f0.png",
+    img2: "images/crunchy.jpg",
     name: { th: "ครันชี่ ลาร์นา เค้ก", en: "Crispy Larna Cake", zh: "脆脆拉尔纳蛋糕", ko: "크리스피 라르나 케이크" },
     tag: {
       th: "เนื้อนุ่มของบราวนี่รางวัล ผสานครันชี่กรุบกรอบ",
@@ -222,7 +224,64 @@ const PRODUCTS = [
       en: "Keep frozen for the ice-cream texture. For the soft-cake texture, refrigerate and enjoy within 3 days for best freshness.",
       zh: "冷冻保存可享受冰淇淋般口感；若想品尝绵软蛋糕口感，请冷藏并在3天内食用，以保持最佳新鲜度。",
       ko: "아이스크림 같은 식감을 원하면 냉동 보관하세요. 부드러운 케이크 식감을 원하면 냉장 보관 후 신선도를 위해 3일 이내에 드세요."
-    }
+    },
+    layers: [
+      {
+        icon: "🌋",
+        h: { th: "ชั้นที่ 1 · เค้กหน้านิ่มลาวา", en: "Layer 1 · Lava Soft Cake", zh: "第一层 · 熔岩软蛋糕", ko: "1층 · 라바 소프트 케이크" },
+        p: {
+          th: "ช็อกโกแลตเข้ม บาลานซ์ ไม่หวานแหลม สูตรเดิมของ Larna House ที่ทำให้ \"เยิ้ม\" ขึ้นกว่าเดิม ด้วยเทคนิคพิเศษเก็บความชุ่มฉ่ำให้นานขึ้น",
+          en: "Rich, balanced dark chocolate — not overly sweet. Larna House's original recipe, made even more molten with a special technique that keeps it moist longer.",
+          zh: "浓郁均衡的黑巧克力，甜度适中。Larna House原创配方，运用特殊工艺让口感更加\"熔岩流心\"，湿润度维持更久。",
+          ko: "진하고 균형 잡힌 다크 초콜릿, 과하게 달지 않아요. Larna House의 오리지널 레시피에 특별한 기법을 더해 더욱 촉촉하고 라바처럼 흐르는 식감을 오래 유지합니다."
+        }
+      },
+      {
+        icon: "🥜",
+        h: { th: "ชั้นที่ 2 · เพสถั่วบดจาก I'M NUTS", en: "Layer 2 · Nut Paste by I'M NUTS", zh: "第二层 · I'M NUTS坚果酱", ko: "2층 · I'M NUTS 넛 페이스트" },
+        p: {
+          th: "อัลมอนด์คั่วอุณหภูมิกลาง-สูงเพื่อดึงกลิ่นหอมมัน ผสมพีนัทคัดขนาดสม่ำเสมอ บดจนเนียนละลายในปาก จากอัตราส่วนที่ทดลองหลายรอบจนลงตัวกับช็อกโกแลตพอดี",
+          en: "Almonds roasted at medium-high heat for a nutty-toasty aroma, blended with evenly-sized peanuts and ground until smooth and melt-in-your-mouth — a ratio tested many times to balance perfectly with the chocolate.",
+          zh: "杏仁以中高温烘烤，激发浓郁坚果香气，搭配大小均匀的花生，研磨至丝滑入口即化——经过多次试验才找到与巧克力完美平衡的比例。",
+          ko: "중고온에서 볶아 고소한 향을 살린 아몬드에 크기가 고른 땅콩을 더해, 입에서 사르르 녹을 때까지 갈아냈습니다. 초콜릿과 완벽하게 어우러지는 비율을 찾기까지 수차례 테스트를 거쳤습니다."
+        }
+      },
+      {
+        icon: "✨",
+        h: { th: "ชั้นที่ 3 · ครันชี่ท็อปปิ้ง รางวัล Taste Awards 2024", en: "Layer 3 · Award-Winning Crispy Topping", zh: "第三层 · 获奖酥脆配料", ko: "3층 · 수상작 크리스피 토핑" },
+        p: {
+          th: "เบสครั้นชี่สูตรลับที่ให้เสียง \"กรุบกรอบ\" เคลือบด้วยช็อกโกแลตคุณภาพดีเพื่อคงความกรอบให้อยู่ได้นาน สัมผัสครบทั้งกรอบ เยิ้ม และนุ่ม ในคำเดียว",
+          en: "A secret crunchy base with a satisfying crackle, coated in quality chocolate to keep it crisp for longer — crunchy, molten, and soft, all in one bite.",
+          zh: "秘制酥脆底料带来满足的\"咔滋\"声，外层裹以优质巧克力以保持长久酥脆——酥脆、熔岩流心与柔软，三种口感一口俱全。",
+          ko: "만족스러운 바삭함을 주는 시크릿 크런치 베이스에 고급 초콜릿을 코팅해 바삭함을 오래 유지합니다. 바삭함, 라바의 촉촉함, 부드러움을 한입에 모두 느껴보세요."
+        }
+      }
+    ],
+    enjoyTips: [
+      { th: "ยิ่งเย็นจัด ยิ่งได้ยินเสียงกรุบกรอบชัดในทุกคำที่ตัก", en: "The colder it is, the more satisfying the crunch in every spoonful.", zh: "越冰越能在每一口都听见清脆的咔滋声。", ko: "차가울수록 한 입 한 입마다 바삭한 소리가 더 선명하게 느껴져요." },
+      { th: "จับคู่กับกาแฟดำ ช็อกโกแลตร้อน หรือชาไม่หวาน จะช่วยดึงกลิ่นถั่วให้เด่นขึ้น", en: "Pair with black coffee, hot chocolate, or unsweetened tea to bring out the nutty aroma.", zh: "搭配黑咖啡、热巧克力或无糖茶，能让坚果香气更加突出。", ko: "블랙커피, 핫초콜릿, 또는 무가당 차와 함께 즐기면 고소한 견과류 향이 더욱 살아납니다." },
+      { th: "เหมาะเป็นของขวัญหรือของหวานปาร์ตี้ออฟฟิศ ตัดแชร์ง่าย ถ่ายรูปสวย", en: "Great as a gift or an office party dessert — easy to slice and share, and photogenic too.", zh: "非常适合作为礼物或办公室聚会甜点——方便分切分享，拍照也好看。", ko: "선물이나 오피스 파티 디저트로도 좋아요. 자르기 쉽고 나눠 먹기 좋으며 사진도 예쁘게 나옵니다." }
+    ],
+    productFaq: [
+      {
+        q: { th: "หวานไหม?", en: "Is it very sweet?", zh: "甜度高吗？", ko: "많이 달콤한가요?" },
+        a: {
+          th: "สูตรนี้บาลานซ์ หวานน้อยกว่าเค้กช็อกโกแลตที่ขายทั่วไป ทานได้บ่อยไม่เลี่ยน",
+          en: "This recipe is well-balanced and less sweet than typical chocolate cakes — easy to enjoy often without feeling too rich.",
+          zh: "这款配方口感均衡，甜度低于市面上常见的巧克力蛋糕，可以经常享用而不腻。",
+          ko: "이 레시피는 균형 잡힌 단맛으로, 일반적인 초콜릿 케이크보다 덜 달아서 자주 즐기기 좋습니다."
+        }
+      },
+      {
+        q: { th: "เด็กทานได้ไหม?", en: "Can kids eat it?", zh: "小朋友可以吃吗？", ko: "아이도 먹을 수 있나요?" },
+        a: {
+          th: "ได้ครับ แต่มีส่วนผสมของถั่ว (อัลมอนด์และพีนัท) หากมีอาการแพ้ถั่วควรหลีกเลี่ยง",
+          en: "Yes, but it contains nuts (almond and peanut) — please avoid if you have a nut allergy.",
+          zh: "可以，但含有坚果成分（杏仁与花生），如对坚果过敏请避免食用。",
+          ko: "네, 가능합니다. 다만 아몬드와 땅콩 등 견과류가 들어있으니 견과류 알레르기가 있다면 피해주세요."
+        }
+      }
+    ]
   }
 ];
 
