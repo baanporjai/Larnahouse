@@ -22,7 +22,7 @@
   "about": {
     "@type": "Organization",
     "name": "Larna House",
-    "foundingDate": "2000",
+    "foundingDate": "2006",
     "founder": [{ "@type": "Person", "name": "นภัสพร ผลเจริญ" }]
   }
 }
@@ -72,6 +72,21 @@
   .sp-dark p{color:#e9dccb;}
 
   .sp-source{max-width:760px;margin:8px auto 0;text-align:center;font-size:12.5px;color:var(--muted);}
+
+  .sp-timeline{max-width:640px;margin:44px auto 0;position:relative;}
+  .sp-timeline::before{content:'';position:absolute;left:98px;top:6px;bottom:6px;width:2px;background:var(--cream-2);}
+  .sp-tl-item{display:grid;grid-template-columns:90px 1fr;gap:0 26px;position:relative;padding-bottom:34px;}
+  .sp-tl-item:last-child{padding-bottom:0;}
+  .sp-tl-item::before{content:'';position:absolute;left:94px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--frost);box-shadow:0 0 0 4px var(--cream-2);}
+  .sp-tl-year{font-weight:900;font-size:18px;color:var(--frost);text-align:right;}
+  .sp-tl-body h4{font-size:16px;color:var(--choco-dark);margin-bottom:4px;}
+  .sp-tl-body p{font-size:14px;color:var(--muted);margin:0;line-height:1.6;}
+  @media (max-width:600px){
+    .sp-timeline::before{display:none;}
+    .sp-tl-item{grid-template-columns:1fr;gap:2px;padding-left:16px;padding-bottom:26px;border-left:3px solid var(--cream-2);}
+    .sp-tl-item::before{display:none;}
+    .sp-tl-year{text-align:left;}
+  }
 </style>
 </head>
 <body>
@@ -112,12 +127,45 @@
       <p style="margin:14px 0;color:var(--text);" data-i18n="sp1_p1">Our soft-fudge chocolate cake recipe came from the mother of one of Larna House's founders.</p>
       <p style="margin:14px 0;color:var(--text);" data-i18n="sp1_p2">She first sold it at a coffee shop while still in university.</p>
       <blockquote class="sp-quote" data-i18n="sp1_quote">It's a recipe from my husband's mother.</blockquote>
+      <p class="sp-who" data-i18n="sp1_who">Jack · Founder, Larna House</p>
+    </div>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section class="sp-section alt">
+  <div class="container">
+    <div class="center" style="max-width:680px;">
+      <div class="eyebrow eyebrow-badge" data-i18n="sp_tl_eyebrow">The Journey</div>
+      <h2 class="section-title" data-i18n="sp_tl_title">From a Home Kitchen to the World Stage</h2>
+    </div>
+    <div class="sp-timeline">
+      <div class="sp-tl-item">
+        <div class="sp-tl-year">1998</div>
+        <div class="sp-tl-body"><h4 data-i18n="tl1_h">Mom's Recipe · A Home Kitchen</h4><p data-i18n="tl1_p">The original chocolate cake was baked for a family Christmas.</p></div>
+      </div>
+      <div class="sp-tl-item">
+        <div class="sp-tl-year">2006</div>
+        <div class="sp-tl-body"><h4 data-i18n="tl2_h">Larna House Opens Its First Branch</h4><p data-i18n="tl2_p">Phatthanakan 61 branch — the home kitchen became a central kitchen.</p></div>
+      </div>
+      <div class="sp-tl-item">
+        <div class="sp-tl-year">2023</div>
+        <div class="sp-tl-body"><h4 data-i18n="tl3_h">Cacao Everywhere Is Born</h4><p data-i18n="tl3_p">Expanding into a craft chocolate café.</p></div>
+      </div>
+      <div class="sp-tl-item">
+        <div class="sp-tl-year">2024</div>
+        <div class="sp-tl-body"><h4 data-i18n="tl4_h">🏆 Superior Taste Award · Brussels</h4><p data-i18n="tl4_p">Recognized on the international stage in Brussels.</p></div>
+      </div>
+      <div class="sp-tl-item">
+        <div class="sp-tl-year">2026</div>
+        <div class="sp-tl-body"><h4 data-i18n="tl5_h">Chiva Cafe + Export Ready</h4><p data-i18n="tl5_p">Chiva Cafe opens at Bangkok Hospital; Frozen Larna Cake becomes export-ready.</p></div>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- 2. THE NAME -->
-<section class="sp-section alt">
+<section class="sp-section">
   <div class="container center" style="max-width:720px;">
     <div class="eyebrow" data-i18n="sp2_eyebrow">Where the Name Comes From</div>
     <h2 class="section-title" data-i18n="sp2_title">Why We're Called Larna House</h2>
@@ -127,23 +175,26 @@
 </section>
 
 <!-- 3. PHILOSOPHY -->
-<section class="sp-section">
+<section class="sp-section alt">
   <div class="container center" style="max-width:720px;">
     <div class="eyebrow" data-i18n="sp3_eyebrow">Our Philosophy</div>
     <h2 class="section-title" data-i18n="sp3_title">Don't Do a Lot. Just Do One Thing Well.</h2>
     <p class="section-sub" style="margin:16px auto 0;" data-i18n="sp3_p1">From day one, we chose to focus only on soft-fudge chocolate cake.</p>
     <blockquote class="sp-quote" style="text-align:left;" data-i18n="sp3_quote">People ask why we don't make many kinds of cake.</blockquote>
+    <h3 style="margin:32px 0 10px;color:var(--choco-dark);font-size:19px;" data-i18n="sp3_promise_h">Our Promise</h3>
+    <p class="section-sub" style="margin:0 auto;" data-i18n="sp3_p2">We eat the same cake we sell our family.</p>
   </div>
 </section>
 
 <!-- 5. YELLOW CHOCOLATE -->
-<section class="sp-section alt">
+<section class="sp-section">
   <div class="container center" style="max-width:720px;">
     <div class="eyebrow" data-i18n="sp5_eyebrow">Down to the Roots</div>
     <h2 class="section-title" data-i18n="sp5_title">From Cacao User to Thai Cacao Advocate</h2>
     <p class="section-sub" style="margin:16px auto 0;" data-i18n="sp5_p1">After 20-plus years of making chocolate cake with imported chocolate, Napatsorn discovered Thailand had actually been growing cacao for decades.</p>
     <p class="section-sub" style="margin:16px auto 0;" data-i18n="sp5_p2">On his return, they founded Yellow Chocolate.</p>
     <blockquote class="sp-quote" style="text-align:left;" data-i18n="sp5_quote">We wanted to help Thai chocolate production grow in the right direction.</blockquote>
+    <p class="section-sub" style="margin:20px auto 0;" data-i18n="sp5_p3">Today, that intention has grown into Cacao Everywhere.</p>
   </div>
 </section>
 
@@ -160,6 +211,23 @@
   </div>
   <div class="container center" style="max-width:720px;margin-top:28px;">
     <p data-i18n="sp6_p2">This very innovation let us start welcoming distributors both in Thailand and abroad.</p>
+    <p style="margin-top:12px;" data-i18n="sp6_p3">By 2026, Frozen Larna Cake is export-ready to Singapore, Malaysia, and the UAE.</p>
+  </div>
+</section>
+
+<!-- FAMILY OF BRANDS -->
+<section class="sp-section alt">
+  <div class="container">
+    <div class="center" style="max-width:680px;">
+      <div class="eyebrow eyebrow-badge" data-i18n="sp_family_eyebrow">Our Family</div>
+      <h2 class="section-title" data-i18n="sp_family_title">Larna House Is Part of a Bigger Mission</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card"><div class="icon">🎂</div><h4 data-i18n="spf1_h">Larna House</h4><p data-i18n="spf1_p">Birthday cakes that started in a home kitchen.</p></div>
+      <div class="feature-card"><div class="icon">☕</div><h4 data-i18n="spf2_h">Cacao Everywhere</h4><p data-i18n="spf2_p">A craft chocolate café and Thailand's largest cacao marketplace.</p></div>
+      <div class="feature-card"><div class="icon">🌱</div><h4 data-i18n="spf3_h">Yellow Chocolate</h4><p data-i18n="spf3_p">A chocolate social enterprise sharing profit with Thai farmers.</p></div>
+      <div class="feature-card"><div class="icon">🏆</div><h4 data-i18n="spf4_h">TCCF</h4><p data-i18n="spf4_p">Thailand Craft Chocolate Festival.</p></div>
+    </div>
   </div>
 </section>
 
@@ -174,6 +242,7 @@
 <!-- CTA -->
 <section class="sp-section alt">
   <div class="container center" style="max-width:600px;">
+    <p class="section-sub" style="margin:0 auto 20px;font-style:italic;" data-i18n="sp_cta_lead">Every time you order a Larna cake, you help mom's cake keep passing happiness to the next generation.</p>
     <h2 class="section-title" data-i18n="sp_cta_title">Try the Cake We're Proudest Of</h2>
     <p class="section-sub" style="margin:14px auto 24px;" data-i18n="sp_cta_p">The original soft-fudge chocolate cake, now frozen for up to 12 months.</p>
     <a href="index.html#shop" class="btn btn-primary" data-i18n="sp_cta_btn">Shop All Flavors</a>
