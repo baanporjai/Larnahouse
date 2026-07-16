@@ -225,7 +225,7 @@ function switchImg(el, src){
 
 function renderRelated(){
   const id = getParam("id");
-  const others = PRODUCTS.filter(p => p.id !== id).slice(0, 4);
+  const others = PRODUCTS.filter(p => p.id !== id);
   document.getElementById("relatedGrid").innerHTML = others.map(p => `
     <a class="product-card" href="product.html?id=${p.id}">
       <div class="thumb"><img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy"></div>
