@@ -58,7 +58,7 @@
 
     <div id="productExtra"><!-- filled by JS, only for products with extra content --></div>
 
-    <div class="care-section">
+    <div class="care-section" id="frozenCareSection">
       <div class="care-block">
         <div class="care-q">
           <span data-i18n="care1_q">How do I store Frozen Larna Cake?</span>
@@ -215,6 +215,7 @@ function renderProductDetail(){
       </div>`;
   }
   document.getElementById("productExtra").innerHTML = extraHtml;
+  document.getElementById("frozenCareSection").style.display = p.frozen === false ? "none" : "";
 }
 
 function switchImg(el, src){
