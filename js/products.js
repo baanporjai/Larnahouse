@@ -291,19 +291,74 @@ const PRODUCTS = [
     box: "ถุงซีลเดี่ยว 1 ชิ้น",
     badge: { th: "ของใหม่", en: "New", zh: "新品", ko: "신제품" },
     img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/c3453369-727c-441f-b73d-0700efcb2291.png",
-    img2: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/596dc111-1ee5-4b04-8004-735716d98543.png",
     name: { th: "คุกกี้มาร์ชเมลโล่ ลาร์นา", en: "Larna Marshmallow Cookie", zh: "拉尔纳棉花糖曲奇", ko: "라르나 마시멜로 쿠키" },
     tag: {
-      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่ ใช้ช็อกโกแลตฝีมือคนไทยจากน่าน",
-      en: "Chocolate marshmallow cookie made with handcrafted Thai chocolate from Nan",
-      zh: "巧克力棉花糖曲奇，选用南邦手工泰式巧克力",
-      ko: "난(Nan) 지방 수제 태국 초콜릿으로 만든 초콜릿 마시멜로 쿠키"
+      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่ล้วน ใช้ช็อกโกแลตฝีมือคนไทยจากน่าน",
+      en: "Classic chocolate marshmallow cookie made with handcrafted Thai chocolate from Nan",
+      zh: "经典巧克力棉花糖曲奇，选用南邦手工泰式巧克力",
+      ko: "난(Nan) 지방 수제 태국 초콜릿으로 만든 클래식 초콜릿 마시멜로 쿠키"
     },
     desc: {
-      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่สูตรพิเศษ ใช้ช็อกโกแลตฝีมือคนไทยจากจังหวัดน่านเป็นวัตถุดิบหลัก ผสมผสานกับช็อกโกแลตหลายชนิด ใส่แป้งน้อย แต่อัดแน่นไปด้วยมาร์ชเมลโล่ชิ้นใหญ่ทั่วทั้งชิ้น เน้นเพิ่มเนื้อช็อกโกแลตเพื่อเสริมรสชาติ แทนการลดความหวานด้วยสารให้ความหวานสังเคราะห์ มีให้เลือก 3 รสชาติ: มาร์ชเมลโล่ล้วน มาร์ชเมลโล่คาเคานิบส์ และมาร์ชเมลโล่อัลมอนด์",
-      en: "A one-of-a-kind cookie made with handcrafted Thai chocolate from Nan province as the main ingredient, blended with several types of chocolate. Less flour, with big marshmallow chunks packed into every bite. We use more chocolate mass to boost flavor rather than swapping in artificial sweeteners to cut sweetness. Available in 3 flavors: Marshmallows only, Marsh & Cacao Nibs, and Marsh & Almonds.",
-      zh: "独具特色的曲奇，主要采用泰国南邦府手工制作的巧克力为原料，并混合多种巧克力。面粉用量较少，每一口都能吃到大块棉花糖。我们选择增加巧克力用量来提升风味，而非用人工代糖降低甜度。共有3种口味：原味棉花糖、棉花糖可可粒、棉花糖杏仁。",
-      ko: "태국 난(Nan) 지방에서 수제로 만든 초콜릿을 주재료로 하고 여러 종류의 초콜릿을 배합한 특별한 쿠키입니다. 밀가루는 적게, 큼직한 마시멜로 조각은 한입 가득 넣었습니다. 인공 감미료로 단맛을 줄이는 대신 초콜릿 함량을 늘려 풍미를 살렸습니다. 마시멜로 단독, 마시멜로&카카오닙스, 마시멜로&아몬드 3가지 맛으로 만나보세요."
+      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่ล้วน สูตรพิเศษที่ใช้ช็อกโกแลตฝีมือคนไทยจากจังหวัดน่านเป็นวัตถุดิบหลัก ผสมผสานกับช็อกโกแลตหลายชนิด ใส่แป้งน้อย แต่อัดแน่นไปด้วยมาร์ชเมลโล่ชิ้นใหญ่ทั่วทั้งชิ้น เน้นเพิ่มเนื้อช็อกโกแลตเพื่อเสริมรสชาติ แทนการลดความหวานด้วยสารให้ความหวานสังเคราะห์",
+      en: "A one-of-a-kind cookie made with handcrafted Thai chocolate from Nan province as the main ingredient, blended with several types of chocolate. Less flour, with big marshmallow chunks packed into every bite. We use more chocolate mass to boost flavor rather than swapping in artificial sweeteners to cut sweetness.",
+      zh: "原味棉花糖曲奇，主要采用泰国南邦府手工制作的巧克力为原料，并混合多种巧克力。面粉用量较少，每一口都能吃到大块棉花糖。我们选择增加巧克力用量来提升风味，而非用人工代糖降低甜度。",
+      ko: "태국 난(Nan) 지방에서 수제로 만든 초콜릿을 주재료로 하고 여러 종류의 초콜릿을 배합한 특별한 쿠키입니다. 밀가루는 적게, 큼직한 마시멜로 조각은 한입 가득 넣었습니다. 인공 감미료로 단맛을 줄이는 대신 초콜릿 함량을 늘려 풍미를 살렸습니다."
+    },
+    serving: {
+      th: "เก็บในภาชนะปิดสนิทที่อุณหภูมิห้อง หลีกเลี่ยงความชื้นและแสงแดดโดยตรง เพื่อความกรอบอร่อยที่สุด",
+      en: "Store in an airtight container at room temperature, away from moisture and direct sunlight, for the best texture.",
+      zh: "请存放于密封容器中，置于室温环境，避免潮湿与阳光直射，以保持最佳口感。",
+      ko: "최상의 식감을 위해 밀폐 용기에 담아 실온에서 보관하고, 습기와 직사광선을 피해주세요."
+    }
+  },
+  {
+    id: "marshmallow-cookie-nibs",
+    frozen: false,
+    price: 60,
+    weight: "40 g",
+    box: "ถุงซีลเดี่ยว 1 ชิ้น",
+    badge: { th: "ของใหม่", en: "New", zh: "新品", ko: "신제품" },
+    img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/596dc111-1ee5-4b04-8004-735716d98543.png",
+    name: { th: "คุกกี้มาร์ชเมลโล่คาเคานิบส์ ลาร์นา", en: "Larna Marshmallow & Cacao Nibs Cookie", zh: "拉尔纳棉花糖可可粒曲奇", ko: "라르나 마시멜로 카카오닙스 쿠키" },
+    tag: {
+      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่ผสมคาเคานิบส์ กรุบกรอบ หอมโกโก้แท้",
+      en: "Chocolate marshmallow cookie with crunchy cacao nibs and real cacao aroma",
+      zh: "巧克力棉花糖曲奇，加入酥脆可可粒，可可香气浓郁",
+      ko: "바삭한 카카오닙스와 진한 카카오 향의 초콜릿 마시멜로 쿠키"
+    },
+    desc: {
+      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่สูตรพิเศษ ใช้ช็อกโกแลตฝีมือคนไทยจากจังหวัดน่านเป็นวัตถุดิบหลัก ผสมผสานกับช็อกโกแลตหลายชนิด ใส่แป้งน้อย แต่อัดแน่นไปด้วยมาร์ชเมลโล่ชิ้นใหญ่ทั่วทั้งชิ้น เสริมด้วยคาเคานิบส์กรุบกรอบ ให้สัมผัสและกลิ่นหอมโกโก้แท้เข้มข้นยิ่งขึ้น เน้นเพิ่มเนื้อช็อกโกแลตเพื่อเสริมรสชาติ แทนการลดความหวานด้วยสารให้ความหวานสังเคราะห์",
+      en: "A one-of-a-kind cookie made with handcrafted Thai chocolate from Nan province as the main ingredient, blended with several types of chocolate. Less flour, with big marshmallow chunks packed into every bite, finished with crunchy cacao nibs for extra texture and real cacao aroma. We use more chocolate mass to boost flavor rather than swapping in artificial sweeteners to cut sweetness.",
+      zh: "特色曲奇，主要采用泰国南邦府手工制作的巧克力为原料，并混合多种巧克力。面粉用量较少，每一口都能吃到大块棉花糖，再加入酥脆可可粒，带来更浓郁的可可香气与口感。我们选择增加巧克力用量来提升风味，而非用人工代糖降低甜度。",
+      ko: "태국 난(Nan) 지방에서 수제로 만든 초콜릿을 주재료로 하고 여러 종류의 초콜릿을 배합한 특별한 쿠키입니다. 밀가루는 적게, 큼직한 마시멜로 조각을 가득 넣고 바삭한 카카오닙스를 더해 식감과 진한 카카오 향을 살렸습니다. 인공 감미료로 단맛을 줄이는 대신 초콜릿 함량을 늘려 풍미를 살렸습니다."
+    },
+    serving: {
+      th: "เก็บในภาชนะปิดสนิทที่อุณหภูมิห้อง หลีกเลี่ยงความชื้นและแสงแดดโดยตรง เพื่อความกรอบอร่อยที่สุด",
+      en: "Store in an airtight container at room temperature, away from moisture and direct sunlight, for the best texture.",
+      zh: "请存放于密封容器中，置于室温环境，避免潮湿与阳光直射，以保持最佳口感。",
+      ko: "최상의 식감을 위해 밀폐 용기에 담아 실온에서 보관하고, 습기와 직사광선을 피해주세요."
+    }
+  },
+  {
+    id: "marshmallow-cookie-almond",
+    frozen: false,
+    price: 60,
+    weight: "40 g",
+    box: "ถุงซีลเดี่ยว 1 ชิ้น",
+    badge: { th: "ของใหม่", en: "New", zh: "新品", ko: "신제품" },
+    img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/5e4c5b2c-36a3-43ae-b431-53fa5368c1c7.png",
+    name: { th: "คุกกี้มาร์ชเมลโล่อัลมอนด์ ลาร์นา", en: "Larna Marshmallow & Almond Cookie", zh: "拉尔纳棉花糖杏仁曲奇", ko: "라르나 마시멜로 아몬드 쿠키" },
+    tag: {
+      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่ผสมอัลมอนด์ หอมมันจากถั่วคั่ว",
+      en: "Chocolate marshmallow cookie with roasted almonds for a nutty crunch",
+      zh: "巧克力棉花糖曲奇，加入烘烤杏仁，坚果香气浓郁",
+      ko: "고소하게 볶은 아몬드가 들어간 초콜릿 마시멜로 쿠키"
+    },
+    desc: {
+      th: "คุกกี้ช็อกโกแลตมาร์ชเมลโล่สูตรพิเศษ ใช้ช็อกโกแลตฝีมือคนไทยจากจังหวัดน่านเป็นวัตถุดิบหลัก ผสมผสานกับช็อกโกแลตหลายชนิด ใส่แป้งน้อย แต่อัดแน่นไปด้วยมาร์ชเมลโล่ชิ้นใหญ่ทั่วทั้งชิ้น เสริมด้วยอัลมอนด์คั่วสับหยาบ ให้รสสัมผัสกรุบกรอบและกลิ่นหอมมันจากถั่ว เน้นเพิ่มเนื้อช็อกโกแลตเพื่อเสริมรสชาติ แทนการลดความหวานด้วยสารให้ความหวานสังเคราะห์",
+      en: "A one-of-a-kind cookie made with handcrafted Thai chocolate from Nan province as the main ingredient, blended with several types of chocolate. Less flour, with big marshmallow chunks packed into every bite, topped with coarsely chopped roasted almonds for a nutty crunch. We use more chocolate mass to boost flavor rather than swapping in artificial sweeteners to cut sweetness.",
+      zh: "特色曲奇，主要采用泰国南邦府手工制作的巧克力为原料，并混合多种巧克力。面粉用量较少，每一口都能吃到大块棉花糖，再铺上粗切烘烤杏仁，增添坚果香气与酥脆口感。我们选择增加巧克力用量来提升风味，而非用人工代糖降低甜度。",
+      ko: "태국 난(Nan) 지방에서 수제로 만든 초콜릿을 주재료로 하고 여러 종류의 초콜릿을 배합한 특별한 쿠키입니다. 밀가루는 적게, 큼직한 마시멜로 조각을 가득 넣고 굵게 다진 볶은 아몬드를 올려 고소한 식감을 더했습니다. 인공 감미료로 단맛을 줄이는 대신 초콜릿 함량을 늘려 풍미를 살렸습니다."
     },
     serving: {
       th: "เก็บในภาชนะปิดสนิทที่อุณหภูมิห้อง หลีกเลี่ยงความชื้นและแสงแดดโดยตรง เพื่อความกรอบอร่อยที่สุด",
