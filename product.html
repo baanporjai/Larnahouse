@@ -125,6 +125,8 @@
 
 <script src="js/products.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/inventory-config.js"></script>
+<script src="js/inventory.js"></script>
 <script>
 function getParam(name){
   return new URLSearchParams(window.location.search).get(name);
@@ -148,6 +150,7 @@ function renderProductDetail(){
       <span class="pill">${p.badge[currentLang]}</span>
       <h1 class="detail-name">${p.name[currentLang]}</h1>
       <div class="detail-price">${p.price} THB</div>
+      ${isOutOfStock(p.id) ? `<div class="detail-stock-badge">${t('stock_out')}</div>` : ""}
       <p style="color:var(--muted);font-size:16px;">${p.tag[currentLang]}</p>
       <div class="detail-meta">
         <div class="mi">${t('detail_weight')}: ${p.weight}</div>
@@ -157,7 +160,7 @@ function renderProductDetail(){
       <h4 style="color:var(--choco-dark);margin-top:24px;">${t('detail_serving')}</h4>
       <p class="detail-desc">${p.serving[currentLang]}</p>
       <div class="detail-actions">
-        <a href="order.html?id=${p.id}" class="btn btn-primary">${t('nav_order')}</a>
+        <a href="order.html?id=${p.id}" class="btn btn-primary${isOutOfStock(p.id) ? ' btn-disabled' : ''}">${t('nav_order')}</a>
         <a href="https://lin.ee/Qlxm0tW" target="_blank" rel="noopener noreferrer" class="btn btn-line">${t('detail_line')}</a>
         <a href="index.html#vending" class="btn btn-outline">${t('detail_buy')}</a>
       </div>
@@ -248,9 +251,14 @@ function switchImg(el, src){
 function renderRelated(){
   const id = getParam("id");
   const others = PRODUCTS.filter(p => p.id !== id);
-  document.getElementById("relatedGrid").innerHTML = others.map(p => `
-    <a class="product-card" href="product.html?id=${p.id}">
-      <div class="thumb"><img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy"></div>
+  document.getElementById("relatedGrid").innerHTML = others.map(p => {
+    const oos = isOutOfStock(p.id);
+    return `
+    <a class="product-card${oos ? ' out-of-stock' : ''}" href="product.html?id=${p.id}">
+      <div class="thumb">
+        ${oos ? `<span class="stock-badge">${t('stock_out')}</span>` : ""}
+        <img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy">
+      </div>
       <div class="pc-body">
         <span class="pill">${p.badge[currentLang]}</span>
         <div class="pc-name">${p.name[currentLang]}</div>
@@ -261,11 +269,13 @@ function renderRelated(){
         </div>
       </div>
     </a>
-  `).join("");
+  `;
+  }).join("");
 }
 
 renderProductDetail();
 renderRelated();
+loadStockData().then(renderProductDetail);
 </script>
 </body>
 </html>

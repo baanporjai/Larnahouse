@@ -141,6 +141,7 @@ const I18N = {
   detail_layers_title: { th: "3 ชั้นรสสัมผัส", en: "3 Layers of Texture", zh: "三层口感", ko: "3가지 레이어의 식감" },
   detail_benefits_title: { th: "ประโยชน์ของคาเคานิบส์", en: "Benefits of Cacao Nibs", zh: "可可粒的益处", ko: "카카오닙스의 효능" },
   detail_nibs_title: { th: "คาเคานิบส์คืออะไร?", en: "What Are Cacao Nibs?", zh: "什么是可可粒？", ko: "카카오닙스란?" },
+  stock_out: { th: "สินค้าหมดชั่วคราว", en: "Temporarily Out of Stock", zh: "暂时缺货", ko: "일시 품절" },
   detail_video_title:  { th: "ดูวิดีโอแนะนำ", en: "Watch the Video", zh: "观看视频", ko: "영상 보기" },
   detail_tips_title:   { th: "ทานให้อร่อยที่สุด", en: "For the Best Experience", zh: "这样吃最过瘾", ko: "가장 맛있게 즐기는 법" },
   detail_faq_title:    { th: "คำถามที่พบบ่อย", en: "Frequently Asked Questions", zh: "常见问题", ko: "자주 묻는 질문" },

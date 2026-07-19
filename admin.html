@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>จัดการสต็อกสินค้า — Larna Cake</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{background:var(--cream);}
+  .admin-wrap{max-width:1100px;margin:0 auto;padding:40px 20px 80px;}
+  .admin-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px;}
+  .admin-header h1{font-size:26px;color:var(--choco-dark);font-weight:900;margin:0;}
+  .login-card{max-width:360px;margin:80px auto;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:32px;text-align:center;}
+  .login-card input{width:100%;padding:12px 14px;border:1px solid #e5d9cd;border-radius:10px;font-size:15px;margin:16px 0;}
+  .stock-table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);}
+  .stock-table th{background:var(--choco-dark);color:#fff;font-size:12.5px;font-weight:700;text-align:left;padding:10px 12px;}
+  .stock-table td{padding:10px 12px;font-size:13.5px;border-bottom:1px solid #f0e6da;vertical-align:middle;}
+  .stock-table tr:last-child td{border-bottom:none;}
+  .stock-table img{width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;}
+  .row-name{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--choco-dark);}
+  .row-name small{display:block;font-weight:400;color:var(--muted);font-size:11.5px;}
+  .stock-input{width:70px;padding:6px 8px;border:1px solid #e5d9cd;border-radius:8px;font-size:13.5px;}
+  .note-input{width:140px;padding:6px 8px;border:1px solid #e5d9cd;border-radius:8px;font-size:13px;}
+  .save-btn{background:var(--choco-dark);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;}
+  .save-btn:hover{opacity:.9;}
+  .badge-ok{color:#2f7a3d;font-weight:700;}
+  .badge-low{color:#b8860b;font-weight:700;}
+  .badge-out{color:#b23b2e;font-weight:700;}
+  .section-gap{margin-top:48px;}
+  .log-table{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm);}
+  .log-table th{background:var(--muted);color:#fff;font-size:12px;font-weight:700;text-align:left;padding:8px 12px;}
+  .log-table td{padding:8px 12px;font-size:13px;border-bottom:1px solid #f0e6da;}
+  .msg{font-size:13px;margin-top:8px;}
+  .msg.err{color:#b23b2e;}
+  .msg.ok{color:#2f7a3d;}
+  .refresh-btn{background:transparent;border:2px solid var(--choco-dark);color:var(--choco-dark);border-radius:999px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer;}
+  .config-warning{background:#fff3cd;color:#7a5b00;padding:14px 18px;border-radius:10px;font-size:13.5px;margin-bottom:20px;}
+</style>
+</head>
+<body>
+
+<div class="admin-wrap" id="loginView" style="display:none;">
+  <div class="login-card">
+    <h2 style="color:var(--choco-dark);margin-top:0;">เข้าสู่ระบบจัดการสต็อก</h2>
+    <p style="color:var(--muted);font-size:13.5px;">กรอกรหัสผ่านผู้ดูแลระบบ (ADMIN_KEY ที่ตั้งไว้ใน Google Apps Script)</p>
+    <input type="password" id="adminKeyInput" placeholder="รหัสผ่าน">
+    <button class="save-btn" style="width:100%;padding:10px;" onclick="login()">เข้าสู่ระบบ</button>
+    <div class="msg err" id="loginMsg"></div>
+  </div>
+</div>
+
+<div class="admin-wrap" id="mainView" style="display:none;">
+  <div class="admin-header">
+    <h1>จัดการสต็อกสินค้า — Larna Cake</h1>
+    <div style="display:flex;gap:10px;">
+      <button class="refresh-btn" onclick="refreshAll()">รีเฟรชข้อมูล</button>
+      <button class="refresh-btn" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div id="configWarning"></div>
+
+  <table class="stock-table">
+    <thead>
+      <tr>
+        <th>สินค้า</th>
+        <th>ราคา</th>
+        <th>สต็อกปัจจุบัน</th>
+        <th>สถานะ</th>
+        <th>แก้ไขจำนวน</th>
+        <th>หมายเหตุ</th>
+        <th></th>
+        <th>อัปเดตล่าสุด</th>
+      </tr>
+    </thead>
+    <tbody id="stockBody"></tbody>
+  </table>
+
+  <div class="section-gap">
+    <h2 style="color:var(--choco-dark);font-size:20px;">ประวัติการปรับสต็อก</h2>
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>เวลา</th>
+          <th>สินค้า</th>
+          <th>เดิม → ใหม่</th>
+          <th>เปลี่ยนแปลง</th>
+          <th>หมายเหตุ</th>
+        </tr>
+      </thead>
+      <tbody id="logBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="js/products.js"></script>
+<script src="js/inventory-config.js"></script>
+<script>
+const LOW_STOCK_DEFAULT_THRESHOLD = 5;
+
+function getAdminKey(){ return sessionStorage.getItem("larna_admin_key") || ""; }
+function setAdminKey(key){ sessionStorage.setItem("larna_admin_key", key); }
+function clearAdminKey(){ sessionStorage.removeItem("larna_admin_key"); }
+
+function login(){
+  const val = document.getElementById("adminKeyInput").value.trim();
+  if (!val) return;
+  setAdminKey(val);
+  boot();
+}
+
+function logout(){
+  clearAdminKey();
+  boot();
+}
+
+async function apiGet(params){
+  const url = new URL(INVENTORY_API_URL);
+  Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  return res.json();
+}
+
+async function apiPost(payload){
+  const res = await fetch(INVENTORY_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+let stockById = {};
+
+function stockStatus(stock, threshold){
+  if (stock <= 0) return { label: "สินค้าหมด", cls: "badge-out" };
+  if (stock <= (threshold || LOW_STOCK_DEFAULT_THRESHOLD)) return { label: "ใกล้หมด", cls: "badge-low" };
+  return { label: "ปกติ", cls: "badge-ok" };
+}
+
+async function loadStock(){
+  const data = await apiGet({ action: "stock" });
+  stockById = {};
+  (data.products || []).forEach(p => { stockById[p.id] = p; });
+
+  document.getElementById("stockBody").innerHTML = PRODUCTS.map(p => {
+    const s = stockById[p.id] || { stock: 0, threshold: LOW_STOCK_DEFAULT_THRESHOLD, lastUpdated: "" };
+    const status = stockStatus(s.stock, s.threshold);
+    const updated = s.lastUpdated ? new Date(s.lastUpdated).toLocaleString("th-TH") : "—";
+    return `
+      <tr>
+        <td>
+          <div class="row-name">
+            <img src="${p.img}" alt="">
+            <div>${p.name.th}<small>${p.id}</small></div>
+          </div>
+        </td>
+        <td>${p.price} THB</td>
+        <td>${s.stock} ชิ้น</td>
+        <td class="${status.cls}">${status.label}</td>
+        <td><input type="number" class="stock-input" id="stock-${p.id}" value="${s.stock}"></td>
+        <td><input type="text" class="note-input" id="note-${p.id}" placeholder="เช่น รับของเข้าใหม่"></td>
+        <td><button class="save-btn" onclick="saveStock('${p.id}')">บันทึก</button></td>
+        <td style="font-size:11.5px;color:var(--muted);">${updated}</td>
+      </tr>
+      <tr><td colspan="8" style="padding:0;"><div class="msg" id="rowmsg-${p.id}"></div></td></tr>
+    `;
+  }).join("");
+}
+
+async function saveStock(id){
+  const input = document.getElementById(`stock-${id}`);
+  const note = document.getElementById(`note-${id}`).value.trim();
+  const newStock = Number(input.value);
+  const msgEl = document.getElementById(`rowmsg-${id}`);
+  msgEl.textContent = "กำลังบันทึก...";
+  msgEl.className = "msg";
+  const result = await apiPost({ key: getAdminKey(), action: "setStock", id, newStock, note });
+  if (result.error) {
+    msgEl.textContent = "เกิดข้อผิดพลาด: " + result.error;
+    msgEl.className = "msg err";
+    if (result.error === "unauthorized") { clearAdminKey(); setTimeout(boot, 1200); }
+    return;
+  }
+  msgEl.textContent = "บันทึกแล้ว";
+  msgEl.className = "msg ok";
+  await loadStock();
+  await loadLog();
+}
+
+async function loadLog(){
+  const data = await apiGet({ action: "log", key: getAdminKey() });
+  if (data.error) {
+    if (data.error === "unauthorized") {
+      clearAdminKey();
+      document.getElementById("loginMsg").textContent = "รหัสผ่านไม่ถูกต้อง";
+      boot();
+      return;
+    }
+    document.getElementById("logBody").innerHTML = `<tr><td colspan="5">ไม่สามารถโหลดประวัติได้</td></tr>`;
+    return;
+  }
+  const rows = (data.log || []).slice(0, 100);
+  document.getElementById("logBody").innerHTML = rows.map(l => {
+    const p = PRODUCTS.find(x => x.id === l.id);
+    const name = p ? p.name.th : l.id;
+    const time = l.timestamp ? new Date(l.timestamp).toLocaleString("th-TH") : "";
+    const delta = Number(l.delta) > 0 ? `+${l.delta}` : l.delta;
+    return `
+      <tr>
+        <td>${time}</td>
+        <td>${name}</td>
+        <td>${l.oldStock} → ${l.newStock}</td>
+        <td>${delta}</td>
+        <td>${l.note || ""}</td>
+      </tr>
+    `;
+  }).join("") || `<tr><td colspan="5">ยังไม่มีประวัติ</td></tr>`;
+}
+
+async function refreshAll(){
+  await loadStock();
+  await loadLog();
+}
+
+function boot(){
+  const warn = document.getElementById("configWarning");
+  if (!INVENTORY_API_URL) {
+    document.getElementById("loginView").style.display = "none";
+    document.getElementById("mainView").style.display = "block";
+    warn.innerHTML = `<div class="config-warning">ยังไม่ได้ตั้งค่า INVENTORY_API_URL ใน js/inventory-config.js กรุณา deploy Google Apps Script ก่อนใช้งาน</div>`;
+    document.getElementById("stockBody").innerHTML = "";
+    document.getElementById("logBody").innerHTML = "";
+    return;
+  }
+  warn.innerHTML = "";
+  const key = getAdminKey();
+  if (!key) {
+    document.getElementById("loginView").style.display = "block";
+    document.getElementById("mainView").style.display = "none";
+    return;
+  }
+  document.getElementById("loginView").style.display = "none";
+  document.getElementById("mainView").style.display = "block";
+  refreshAll();
+}
+
+boot();
+</script>
+</body>
+</html>

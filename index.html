@@ -425,12 +425,19 @@
 
 <script src="js/products.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/inventory-config.js"></script>
+<script src="js/inventory.js"></script>
 <script>
 function renderProductGrid(){
   const grid = document.getElementById("productGrid");
-  grid.innerHTML = PRODUCTS.map(p => `
-    <a class="product-card" href="product.html?id=${p.id}">
-      <div class="thumb"><img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy"></div>
+  grid.innerHTML = PRODUCTS.map(p => {
+    const oos = isOutOfStock(p.id);
+    return `
+    <a class="product-card${oos ? ' out-of-stock' : ''}" href="product.html?id=${p.id}">
+      <div class="thumb">
+        ${oos ? `<span class="stock-badge">${t('stock_out')}</span>` : ""}
+        <img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy">
+      </div>
       <div class="pc-body">
         <span class="pill">${p.badge[currentLang]}</span>
         <div class="pc-name">${p.name[currentLang]}</div>
@@ -441,7 +448,8 @@ function renderProductGrid(){
         </div>
       </div>
     </a>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderNutrition(){
@@ -466,6 +474,7 @@ function renderNutrition(){
 
 renderProductGrid();
 renderNutrition();
+loadStockData().then(renderProductGrid);
 </script>
 </body>
 </html>
