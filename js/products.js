@@ -337,7 +337,93 @@ const PRODUCTS = [
       en: "Store in an airtight container at room temperature, away from moisture and direct sunlight, for the best texture.",
       zh: "请存放于密封容器中，置于室温环境，避免潮湿与阳光直射，以保持最佳口感。",
       ko: "최상의 식감을 위해 밀폐 용기에 담아 실온에서 보관하고, 습기와 직사광선을 피해주세요."
-    }
+    },
+    nibsIntro: {
+      th: "โกโก้นิบส์ (Cocoa Nibs) คือเนื้อด้านในชิ้นเล็ก ๆ ของเมล็ดโกโก้ที่ผ่านการแยกเปลือกออก แต่ไม่ผ่านการปรุงแต่งหรือเติมน้ำตาล มีรสชาติขมเล็กน้อยและกลิ่นหอมเฉพาะตัวของโกโก้ ถือเป็นรูปแบบธรรมชาติของช็อกโกแลตก่อนถูกแปรรูปเป็นช็อกโกแลตแท่งหรือผลิตภัณฑ์อื่น ๆ ในคุกกี้ชิ้นนี้ เราใส่คาเคานิบส์กรุบกรอบลงไปเสริมทั้งรสสัมผัสและคุณค่าทางโภชนาการ",
+      en: "Cacao nibs are small pieces of the inner cocoa bean with the shell removed — unprocessed, with no added sugar. They have a slightly bitter taste and a distinctive cacao aroma, essentially the natural form of chocolate before it's turned into chocolate bars or other products. In this cookie, we add crunchy cacao nibs for extra texture and nutritional value.",
+      zh: "可可粒（Cocoa Nibs）是可可豆去壳后的内部小碎片，未经加工、不添加糖分，带有淡淡的苦味与独特的可可香气，是巧克力被加工成巧克力块或其他产品之前的天然形态。在这款曲奇中，我们加入酥脆的可可粒，为口感与营养价值加分。",
+      ko: "카카오닙스(Cocoa Nibs)는 껍질을 제거한 카카오 콩의 작은 속살 조각으로, 가공하지 않고 설탕도 첨가하지 않아 살짝 쌉쌀한 맛과 카카오 특유의 향을 지니고 있습니다. 초콜릿 바나 다른 제품으로 가공되기 전의 천연 형태라 할 수 있습니다. 이 쿠키에는 바삭한 카카오닙스를 더해 식감과 영양 가치를 함께 높였습니다."
+    },
+    benefits: [
+      {
+        icon: "🫀",
+        h: { th: "บำรุงหัวใจและหลอดเลือด", en: "Heart & Blood Vessel Health", zh: "有益心血管健康", ko: "심혈관 건강" },
+        p: {
+          th: "สารฟลาโวนอยด์ (สารต้านอนุมูลอิสระ) ในคาเคานิบส์ช่วยลดระดับคอเลสเตอรอลและความดันโลหิต",
+          en: "Flavonoids, a type of antioxidant found in cacao nibs, help lower cholesterol and blood pressure.",
+          zh: "可可粒中的黄酮类抗氧化物质有助于降低胆固醇和血压。",
+          ko: "카카오닙스에 함유된 항산화 성분인 플라보노이드가 콜레스테롤과 혈압을 낮추는 데 도움을 줍니다."
+        }
+      },
+      {
+        icon: "⚡",
+        h: { th: "เพิ่มพลังงาน", en: "Energy Boost", zh: "提升能量", ko: "에너지 충전" },
+        p: {
+          th: "คาเฟอีนตามธรรมชาติในคาเคานิบส์ช่วยกระตุ้นพลังงานและความตื่นตัว",
+          en: "The natural caffeine in cacao nibs helps sharpen energy and alertness.",
+          zh: "可可粒中的天然咖啡因有助于提神醒脑、集中注意力。",
+          ko: "카카오닙스에 든 천연 카페인이 활력과 집중력을 높여줍니다."
+        }
+      },
+      {
+        icon: "😊",
+        h: { th: "ปรับปรุงอารมณ์", en: "Mood Support", zh: "改善情绪", ko: "기분 개선" },
+        p: {
+          th: "คาเคานิบส์มีสารธีโอโบรมีนที่ช่วยเพิ่มฮอร์โมนแห่งความสุข",
+          en: "Cacao nibs contain theobromine, which helps boost feel-good hormones.",
+          zh: "可可粒含有可可碱，有助于促进\"快乐荷尔蒙\"分泌。",
+          ko: "카카오닙스에 함유된 테오브로민 성분이 행복 호르몬 분비를 돕습니다."
+        }
+      },
+      {
+        icon: "🌾",
+        h: { th: "ส่งเสริมสุขภาพลำไส้", en: "Gut Health", zh: "促进肠道健康", ko: "장 건강 증진" },
+        p: {
+          th: "ไฟเบอร์จากคาเคานิบส์ช่วยกระตุ้นการทำงานของระบบย่อยอาหาร",
+          en: "Fiber from cacao nibs supports healthy digestion.",
+          zh: "可可粒中的膳食纤维有助于促进消化系统健康。",
+          ko: "카카오닙스의 식이섬유가 소화 건강을 돕습니다."
+        }
+      }
+    ],
+    productFaq: [
+      {
+        q: { th: "รสชาติของคาเคานิบส์เป็นอย่างไร?", en: "What does cacao nibs taste like?", zh: "可可粒的味道如何？", ko: "카카오닙스는 어떤 맛인가요?" },
+        a: {
+          th: "มีรสขมเข้มเล็กน้อยและกลิ่นหอมโกโก้ธรรมชาติ ไม่หวานเหมือนช็อกโกแลตทั่วไป",
+          en: "A slightly intense bitterness with a natural cacao aroma — not sweet like regular chocolate.",
+          zh: "带有淡淡的浓郁苦味与天然可可香气，不像一般巧克力那样甜。",
+          ko: "살짝 진한 쌉쌀한 맛과 천연 카카오 향이 특징이며, 일반 초콜릿처럼 달지 않습니다."
+        }
+      },
+      {
+        q: { th: "ทานคาเคานิบส์ทุกวันได้ไหม?", en: "Can I eat cacao nibs every day?", zh: "可以每天吃可可粒吗？", ko: "카카오닙스를 매일 먹어도 되나요?" },
+        a: {
+          th: "ได้ การทานในปริมาณที่เหมาะสม (ประมาณ 1-2 ช้อนโต๊ะต่อวัน) ช่วยเสริมประโยชน์ต่อสุขภาพ",
+          en: "Yes. Eating a moderate amount (about 1–2 tablespoons a day) can add extra health benefits.",
+          zh: "可以。适量食用（每天约1-2汤匙）有助于增加健康益处。",
+          ko: "네. 적당량(하루 약 1~2큰술)을 섭취하면 건강에 도움이 될 수 있습니다."
+        }
+      },
+      {
+        q: { th: "คาเคานิบส์ช่วยควบคุมน้ำหนักได้จริงไหม?", en: "Do cacao nibs really help with weight management?", zh: "可可粒真的有助于控制体重吗？", ko: "카카오닙스가 체중 관리에 정말 도움이 되나요?" },
+        a: {
+          th: "คาเคานิบส์มีไฟเบอร์สูงและช่วยให้รู้สึกอิ่มนานขึ้น จึงเหมาะกับการควบคุมน้ำหนักเมื่อทานในปริมาณที่พอดี",
+          en: "Cacao nibs are high in fiber and help you feel fuller for longer, making them a good fit for weight management when eaten in moderation.",
+          zh: "可可粒富含膳食纤维，能延长饱腹感，适量食用有助于控制体重。",
+          ko: "카카오닙스는 식이섬유가 풍부해 포만감을 오래 유지해주므로, 적당히 섭취하면 체중 관리에 도움이 됩니다."
+        }
+      },
+      {
+        q: { th: "คาเคานิบส์ต่างจากช็อกโกแลตทั่วไปอย่างไร?", en: "How are cacao nibs different from regular chocolate?", zh: "可可粒与一般巧克力有什么不同？", ko: "카카오닙스는 일반 초콜릿과 어떻게 다른가요?" },
+        a: {
+          th: "คาเคานิบส์คือเมล็ดโกโก้บดที่ยังไม่ผ่านการปรุงแต่ง ไม่มีน้ำตาลหรือสารเติมแต่งเหมือนช็อกโกแลตทั่วไป",
+          en: "Cacao nibs are unprocessed ground cocoa beans, with no added sugar or other ingredients like regular chocolate.",
+          zh: "可可粒是未经加工的可可豆碎粒，不含糖分或其他添加物，与一般巧克力不同。",
+          ko: "카카오닙스는 가공하지 않은 카카오 콩을 갈아 만든 것으로, 일반 초콜릿과 달리 설탕이나 다른 첨가물이 들어있지 않습니다."
+        }
+      }
+    ]
   },
   {
     id: "marshmallow-cookie-almond",

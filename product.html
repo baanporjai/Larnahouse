@@ -194,6 +194,27 @@ function renderProductDetail(){
         </div>
       </div>`;
   }
+  if (p.nibsIntro) {
+    extraHtml += `
+      <div style="margin-top:56px;max-width:720px;">
+        <h3 class="section-title" style="font-size:22px;margin-bottom:16px;">${t('detail_nibs_title')}</h3>
+        <p style="font-size:15px;line-height:1.8;color:var(--muted);">${p.nibsIntro[currentLang]}</p>
+      </div>`;
+  }
+  if (p.benefits && p.benefits.length) {
+    extraHtml += `
+      <div style="margin-top:56px;">
+        <h3 class="section-title" style="font-size:24px;margin-bottom:22px;">${t('detail_benefits_title')}</h3>
+        <div class="features-grid">
+          ${p.benefits.map(b => `
+            <div class="feature-card">
+              <div class="icon">${b.icon}</div>
+              <h4>${b.h[currentLang]}</h4>
+              <p>${b.p[currentLang]}</p>
+            </div>`).join("")}
+        </div>
+      </div>`;
+  }
   if (p.enjoyTips && p.enjoyTips.length) {
     extraHtml += `
       <div style="margin-top:40px;max-width:720px;">
