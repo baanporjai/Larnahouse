@@ -225,6 +225,20 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   }
   .count-badge.urgent { background: var(--sorbet); }
   .card.urgent { border: 1px solid rgba(232,93,76,.3); box-shadow: 0 2px 16px rgba(232,93,76,.14); }
+  .section-header .section-actions { display: flex; align-items: center; gap: 8px; }
+  .section-refresh-btn {
+    background: var(--cream-2);
+    border: none;
+    color: var(--choco-dark);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .section-refresh-btn:hover { background: var(--cream); }
+  .section-refresh-btn:disabled { opacity: .5; cursor: wait; }
 
   .order-row {
     border-bottom: 1px solid var(--cream-2);
@@ -356,7 +370,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 <header>
   <h1><img class="nav-logo" src="/larna-logo.jpg" alt="Larna Frozen Cake">📊 ยอดขาย</h1>
   <div class="page-tabs">
-    <span class="page-tab active">ขายสั่งซื้อ</span>
+    <span class="page-tab active">ยอดสั่งซื้อ</span>
     <a href="/customers.html" class="page-tab">ประวัติลูกค้า</a>
     <a href="/accounting.html" class="page-tab">บัญชี</a>
     <a href="/stock.html" class="page-tab">สต็อกสินค้า</a>
@@ -675,7 +689,13 @@ function parseItems(str) {
 function isTodayOrder(o) {
   if (o.status === "ยกเลิก") return false;
   const today = todayISO();
-  if (o.date && o.date !== "-" && String(o.date).slice(0, 10) === today) return true;
+  // ใช้ getDeliveryDateOnly() (parse เป็น Date จริงแล้วค่อยอ่านวันที่แบบ local) แทนการ
+  // slice string ตรงๆ — o.date ที่ได้จาก Apps Script บางทีเป็น Date object ที่ถูก
+  // serialize เป็น UTC ISO string (เช่น เที่ยงคืนไทยกลายเป็นเมื่อวานตอน 17:00 UTC)
+  // ทำให้ String(o.date).slice(0,10) เพี้ยนไปวันนึงได้ เหมือนบั๊กที่ toLocalISODate()
+  // ด้านบนแก้ไว้แล้วสำหรับ timestamp แต่ isTodayOrder ไม่เคยใช้แนวทางเดียวกันนี้มาก่อน
+  const deliveryDate = getDeliveryDateOnly(o);
+  if (deliveryDate) return deliveryDate === today;
   const ts = parseTimestamp(o.timestamp);
   return ts ? toLocalISODate(ts) === today : false;
 }
@@ -795,7 +815,10 @@ function render(orders) {
     <div class="card">
       <div class="section-header">
         <h3>🚚 รายการจัดส่งวันนี้</h3>
-        <span class="count-badge">${todayOrdersFiltered.length} ออเดอร์</span>
+        <div class="section-actions">
+          <span class="count-badge">${todayOrdersFiltered.length} ออเดอร์</span>
+          <button class="section-refresh-btn" onclick="init()">🔄 รีเฟรช</button>
+        </div>
       </div>
       ${todayOrdersFiltered.length === 0
         ? '<div class="empty">ยังไม่มีออเดอร์สำหรับวันนี้</div>'
