@@ -21,3 +21,9 @@ function isOutOfStock(id) {
   const s = STOCK_DATA[id];
   return !!s && Number(s.stock) <= 0;
 }
+
+// null = stock unknown/unconfigured, treat as unlimited (graceful degrade)
+function availableStock(id) {
+  const s = STOCK_DATA[id];
+  return s ? Number(s.stock) : null;
+}

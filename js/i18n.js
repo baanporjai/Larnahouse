@@ -142,6 +142,7 @@ const I18N = {
   detail_benefits_title: { th: "ประโยชน์ของคาเคานิบส์", en: "Benefits of Cacao Nibs", zh: "可可粒的益处", ko: "카카오닙스의 효능" },
   detail_nibs_title: { th: "คาเคานิบส์คืออะไร?", en: "What Are Cacao Nibs?", zh: "什么是可可粒？", ko: "카카오닙스란?" },
   stock_out: { th: "สินค้าหมดชั่วคราว", en: "Temporarily Out of Stock", zh: "暂时缺货", ko: "일시 품절" },
+  order_validation_stock: { th: "สินค้าบางรายการมีไม่พอ กรุณาปรับจำนวนในตะกร้า", en: "Some items don't have enough stock — please adjust the quantity in your cart.", zh: "部分商品库存不足，请调整购物车中的数量。", ko: "일부 상품의 재고가 부족합니다. 장바구니 수량을 조정해주세요." },
   detail_video_title:  { th: "ดูวิดีโอแนะนำ", en: "Watch the Video", zh: "观看视频", ko: "영상 보기" },
   detail_tips_title:   { th: "ทานให้อร่อยที่สุด", en: "For the Best Experience", zh: "这样吃最过瘾", ko: "가장 맛있게 즐기는 법" },
   detail_faq_title:    { th: "คำถามที่พบบ่อย", en: "Frequently Asked Questions", zh: "常见问题", ko: "자주 묻는 질문" },

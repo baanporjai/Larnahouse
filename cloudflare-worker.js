@@ -19,6 +19,12 @@
  *                                (accounting.html — cost/expense tracking, separate
  *                                standalone Apps Script project, see
  *                                _expense-apps-script-reference.gs)
+ *   INVENTORY_API_URL          — Apps Script Web App URL for the Stock sheet
+ *                                (see google-apps-script/Code.gs, deployed for
+ *                                stock.html) — used here to deduct stock when
+ *                                a website order comes in
+ *   INVENTORY_ADMIN_KEY        — ADMIN_KEY Script Property set on that same
+ *                                Apps Script project
  *
  * See LINE-ORDER-BACKEND-SETUP.md for full setup steps.
  */
@@ -126,6 +132,34 @@ async function handleOrder(request, env) {
     } catch (e) {
       console.log('Sheets log failed (non-fatal):', e);
     }
+  }
+
+  // ตัดสต็อกสินค้าตามรายการที่สั่ง — ไม่ทำให้ order ล้มเหลวถ้าตัดสต็อกไม่สำเร็จ
+  // (เช่น item ไม่มี id เพราะสั่งก่อนอัปเดตเว็บ หรือ Apps Script ล่มชั่วคราว)
+  if (env.INVENTORY_API_URL && env.INVENTORY_ADMIN_KEY) {
+    await Promise.all(
+      order.items.map(async (it) => {
+        if (!it.id) return;
+        const qty = Number(it.qty) || 0;
+        if (qty <= 0) return;
+        try {
+          await fetch(env.INVENTORY_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+              key: env.INVENTORY_ADMIN_KEY,
+              action: 'adjustStock',
+              id: it.id,
+              delta: -qty,
+              note: `ออเดอร์เว็บไซต์ — ${order.name || ''}`.trim(),
+            }),
+            redirect: 'follow',
+          });
+        } catch (e) {
+          console.log('Stock deduct failed (non-fatal):', it.id, e);
+        }
+      })
+    );
   }
 
   return json({ ok: true }, 200, CORS_HEADERS);

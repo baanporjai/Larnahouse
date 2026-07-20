@@ -8,6 +8,11 @@
  * Deploy: Extensions > Apps Script > paste this file > Deploy > New deployment
  *   Type: Web app · Execute as: Me · Who has access: Anyone
  * Then set Project Settings > Script Properties > ADMIN_KEY to a secret string.
+ *
+ * Updating an existing deployment: after editing this file in the Apps Script
+ * editor, changes only go live once you create a new version — Deploy > Manage
+ * deployments > pick the existing deployment > Edit (pencil) > Version: New
+ * version > Deploy. Saving the file alone does NOT update the live /exec URL.
  */
 
 var SHEET_STOCK = 'Stock';
@@ -49,6 +54,9 @@ function doPost(e) {
   if (payload.action === 'setStock') {
     return jsonResponse_(setStock_(payload.id, Number(payload.newStock), payload.note || ''));
   }
+  if (payload.action === 'adjustStock') {
+    return jsonResponse_(adjustStock_(payload.id, Number(payload.delta), payload.note || ''));
+  }
   return jsonResponse_({ error: 'unknown action' });
 }
 
@@ -84,32 +92,76 @@ function getStockData_() {
 }
 
 function setStock_(id, newStock, note) {
-  var sheet = getStockSheet_();
-  var values = sheet.getDataRange().getValues();
-  var headers = values[0];
-  var idIdx = headers.indexOf('id');
-  var stockIdx = headers.indexOf('stock');
-  var updatedIdx = headers.indexOf('lastUpdated');
-  var rowIndex = -1;
-  var oldStock = null;
-  for (var i = 1; i < values.length; i++) {
-    if (values[i][idIdx] === id) {
-      rowIndex = i + 1;
-      oldStock = Number(values[i][stockIdx]) || 0;
-      break;
-    }
-  }
-  if (rowIndex === -1) {
-    return { error: 'product not found' };
-  }
   if (isNaN(newStock)) {
     return { error: 'invalid stock value' };
   }
-  var now = new Date();
-  sheet.getRange(rowIndex, stockIdx + 1).setValue(newStock);
-  sheet.getRange(rowIndex, updatedIdx + 1).setValue(now);
-  appendLog_(id, oldStock, newStock, note, now);
-  return { success: true, id: id, oldStock: oldStock, newStock: newStock };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getStockSheet_();
+    var values = sheet.getDataRange().getValues();
+    var headers = values[0];
+    var idIdx = headers.indexOf('id');
+    var stockIdx = headers.indexOf('stock');
+    var updatedIdx = headers.indexOf('lastUpdated');
+    var rowIndex = -1;
+    var oldStock = null;
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][idIdx] === id) {
+        rowIndex = i + 1;
+        oldStock = Number(values[i][stockIdx]) || 0;
+        break;
+      }
+    }
+    if (rowIndex === -1) {
+      return { error: 'product not found' };
+    }
+    var now = new Date();
+    sheet.getRange(rowIndex, stockIdx + 1).setValue(newStock);
+    sheet.getRange(rowIndex, updatedIdx + 1).setValue(now);
+    appendLog_(id, oldStock, newStock, note, now);
+    return { success: true, id: id, oldStock: oldStock, newStock: newStock };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// เหมือน setStock_ แต่รับค่าเปลี่ยนแปลง (delta) แทนค่าตัวเลขสุดท้าย ใช้ตอนตัดสต็อกจากออเดอร์
+// เพื่อกันปัญหา race condition เวลามีออเดอร์เข้าพร้อมกันหลายรายการ (ต้อง lock อ่าน-เขียนเป็นก้อนเดียว)
+function adjustStock_(id, delta, note) {
+  if (isNaN(delta)) {
+    return { error: 'invalid delta value' };
+  }
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getStockSheet_();
+    var values = sheet.getDataRange().getValues();
+    var headers = values[0];
+    var idIdx = headers.indexOf('id');
+    var stockIdx = headers.indexOf('stock');
+    var updatedIdx = headers.indexOf('lastUpdated');
+    var rowIndex = -1;
+    var oldStock = null;
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][idIdx] === id) {
+        rowIndex = i + 1;
+        oldStock = Number(values[i][stockIdx]) || 0;
+        break;
+      }
+    }
+    if (rowIndex === -1) {
+      return { error: 'product not found' };
+    }
+    var newStock = oldStock + delta;
+    var now = new Date();
+    sheet.getRange(rowIndex, stockIdx + 1).setValue(newStock);
+    sheet.getRange(rowIndex, updatedIdx + 1).setValue(now);
+    appendLog_(id, oldStock, newStock, note, now);
+    return { success: true, id: id, oldStock: oldStock, newStock: newStock };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function appendLog_(id, oldStock, newStock, note, timestamp) {

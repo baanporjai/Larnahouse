@@ -217,6 +217,8 @@
 
 <script src="js/products.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/inventory-config.js"></script>
+<script src="js/inventory.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 const CART_KEY = "larna_cart";
@@ -238,7 +240,9 @@ function saveCart(cart){
 
 function changeQty(id, delta){
   const cart = getCart();
-  const next = Math.max(0, (cart[id] || 0) + delta);
+  const stock = availableStock(id);
+  let next = Math.max(0, (cart[id] || 0) + delta);
+  if (stock !== null) next = Math.min(next, stock);
   if (next === 0) delete cart[id];
   else cart[id] = next;
   saveCart(cart);
@@ -262,9 +266,15 @@ function renderOrderPicker(){
   const cart = getCart();
   grid.innerHTML = PRODUCTS.map(p => {
     const qty = cart[p.id] || 0;
+    const oos = isOutOfStock(p.id);
+    const stock = availableStock(p.id);
+    const atMax = stock !== null && qty >= stock;
     return `
-    <div class="order-card ${qty > 0 ? 'in-cart' : ''}">
-      <div class="thumb"><img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy"></div>
+    <div class="order-card ${qty > 0 ? 'in-cart' : ''} ${oos ? 'out-of-stock' : ''}">
+      <div class="thumb">
+        ${oos ? `<span class="stock-badge">${t('stock_out')}</span>` : ""}
+        <img src="${p.img}" alt="${p.name[currentLang]}" loading="lazy">
+      </div>
       <div class="oc-body">
         <span class="pill">${p.badge[currentLang]}</span>
         <div class="oc-name">${p.name[currentLang]}</div>
@@ -273,7 +283,7 @@ function renderOrderPicker(){
           <div class="qty-stepper">
             <button onclick="changeQty('${p.id}',-1)" ${qty === 0 ? 'disabled' : ''}>−</button>
             <span>${qty}</span>
-            <button onclick="changeQty('${p.id}',1)">+</button>
+            <button onclick="changeQty('${p.id}',1)" ${oos || atMax ? 'disabled' : ''}>+</button>
           </div>
         </div>
       </div>
@@ -381,7 +391,7 @@ function showToast(msg){
 
 function buildOrderPayload(){
   const lines = getCartLines();
-  const items = lines.map(({p, qty}) => ({ name: p.name[currentLang], qty, price: p.price }));
+  const items = lines.map(({p, qty}) => ({ id: p.id, name: p.name[currentLang], qty, price: p.price }));
   const total = lines.reduce((sum, {p, qty}) => sum + p.price * qty, 0);
   return {
     lang: currentLang,
@@ -407,6 +417,30 @@ async function submitOrder(e){
   submitBtn.disabled = true;
   const originalLabel = submitBtn.innerHTML;
   submitBtn.innerHTML = `<span>${t('order_sending')}</span>`;
+
+  // เช็คสต็อกล่าสุดอีกครั้งก่อนส่งจริง กันเคสเปิดหน้าค้างไว้นานแล้วของหมดไปแล้ว
+  await loadStockData();
+  const lines = getCartLines();
+  const outOfRange = lines.some(({p, qty}) => {
+    const stock = availableStock(p.id);
+    return stock !== null && qty > stock;
+  });
+  if (outOfRange) {
+    const cart = getCart();
+    lines.forEach(({p, qty}) => {
+      const stock = availableStock(p.id);
+      if (stock === null) return;
+      if (stock <= 0) delete cart[p.id];
+      else if (qty > stock) cart[p.id] = stock;
+    });
+    saveCart(cart);
+    renderOrderPicker();
+    renderCart();
+    alert(t('order_validation_stock'));
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalLabel;
+    return;
+  }
 
   const payload = buildOrderPayload();
 
@@ -460,6 +494,7 @@ function resetOrderForm(){
 
 renderOrderPicker();
 renderCart();
+loadStockData().then(() => { renderOrderPicker(); renderCart(); });
 </script>
 </body>
 </html>
