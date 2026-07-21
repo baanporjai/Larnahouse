@@ -104,6 +104,14 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   }
   .page-tab.active { background: var(--frost); color: #fff; }
   .page-tab:not(.active):hover { color: #fff; }
+  .bottom-nav { display: none; }
+  .bnav-item {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    text-decoration: none; color: rgba(255,255,255,.6); font-size: 11px; font-weight: 700; padding: 4px 0;
+  }
+  .bnav-ico { font-size: 20px; line-height: 1; }
+  .bnav-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bnav-item.active { color: #fff; }
   .header-right { justify-self: end; display: flex; align-items: center; gap: 14px; }
   #lastUpdated { font-size: 12px; opacity: 0.5; }
   .refresh-btn {
@@ -175,6 +183,15 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     header { grid-template-columns: 1fr; justify-items: center; text-align: center; }
     .header-right { justify-self: center; }
     .stats { grid-template-columns: repeat(2, 1fr); }
+    .page-tabs { display: none; }
+    .bottom-nav {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      display: flex; justify-content: space-around;
+      background: var(--choco-dark);
+      padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+      box-shadow: 0 -2px 12px rgba(43,24,16,.18);
+    }
+    body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   }
 </style>
 </head>
@@ -399,5 +416,12 @@ async function init(){
 
 if (sessionStorage.getItem("dash_token")) init();
 </script>
+
+<nav class="bottom-nav" aria-label="เมนูแอดมิน">
+  <a href="/dashboard.html" class="bnav-item"><span class="bnav-ico">📊</span><span class="bnav-label">ยอดขาย</span></a>
+  <a href="/customers.html" class="bnav-item"><span class="bnav-ico">👥</span><span class="bnav-label">ลูกค้า</span></a>
+  <a href="/accounting.html" class="bnav-item"><span class="bnav-ico">📒</span><span class="bnav-label">บัญชี</span></a>
+  <span class="bnav-item active"><span class="bnav-ico">📦</span><span class="bnav-label">สต็อก</span></span>
+</nav>
 </body>
 </html>
