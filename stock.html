@@ -143,13 +143,6 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .card .card-sub { font-size: 12.5px; color: var(--choco); opacity: .55; margin-bottom: 18px; }
   .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 10px; }
 
-  .unlock-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .unlock-row input { padding: 8px 12px; border: 1.5px solid var(--cream-2); border-radius: 10px; font-family: inherit; font-size: 13px; outline: none; width: 180px; }
-  .unlock-row input:focus { border-color: var(--frost); }
-  .unlock-btn { background: var(--choco-dark); color: #fff; border: none; border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
-  .unlock-btn:hover { opacity: .9; }
-  .unlocked-tag { font-size: 12px; font-weight: 700; color: var(--green); background: #d4edda; padding: 4px 12px; border-radius: 999px; }
-
   table.stock-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
   .stock-table th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--choco); opacity: .5; padding: 0 10px 10px; }
   .stock-table td { padding: 10px; font-size: 13.5px; border-top: 1px solid var(--cream-2); vertical-align: middle; }
@@ -211,7 +204,6 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
         <h3>คลังสินค้า</h3>
         <div class="card-sub">แก้ไขจำนวนสต็อกสินค้าแต่ละรายการ</div>
       </div>
-      <div id="unlockZone"></div>
     </div>
     <table class="stock-table">
       <thead>
@@ -232,7 +224,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 
   <div class="card">
     <h3>ประวัติการปรับสต็อก</h3>
-    <div class="card-sub">ปลดล็อกเพื่อดูประวัติย้อนหลัง</div>
+    <div class="card-sub">ประวัติการปรับสต็อกล่าสุด</div>
     <table class="log-table">
       <thead>
         <tr>
@@ -253,10 +245,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 <script>
 const LOW_STOCK_DEFAULT_THRESHOLD = 5;
 
-function getAdminKey(){ return sessionStorage.getItem("larna_admin_key") || ""; }
-function setAdminKey(key){ sessionStorage.setItem("larna_admin_key", key); }
-function clearAdminKey(){ sessionStorage.removeItem("larna_admin_key"); }
-
+// อ่าน "สต็อกปัจจุบัน" (action=stock) ไม่ต้องใช้ ADMIN_KEY เลย เรียก Apps Script ตรงๆ ได้
+// (เหมือนที่ index.html/product.html/order.html ใช้อยู่แล้ว) แต่การ "แก้ไข" กับ "ดูประวัติ"
+// ต้องผ่าน Worker เท่านั้น เพราะต้องใช้ ADMIN_KEY ซึ่ง Worker เก็บไว้ฝั่งเซิร์ฟเวอร์ไม่ส่งให้
+// client เห็นค่าจริง — กัน key หลุดไปอยู่ใน public repo ตรงๆ เหมือนที่เคยพลาดมาก่อน
 async function apiGet(params){
   const url = new URL(INVENTORY_API_URL);
   Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
@@ -264,11 +256,20 @@ async function apiGet(params){
   return res.json();
 }
 
-async function apiPost(payload){
-  const res = await fetch(INVENTORY_API_URL, {
+async function apiAdminGet(path){
+  const token = sessionStorage.getItem("dash_token");
+  const res = await fetch(API_BASE + path, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json();
+}
+
+async function apiAdminPost(path, payload){
+  const token = sessionStorage.getItem("dash_token");
+  const res = await fetch(API_BASE + path, {
     method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
   });
   return res.json();
 }
@@ -279,39 +280,6 @@ function stockStatus(stock, threshold){
   if (stock <= 0) return { label: "หมด", cls: "out" };
   if (stock <= (threshold || LOW_STOCK_DEFAULT_THRESHOLD)) return { label: "ใกล้หมด", cls: "low" };
   return { label: "ปกติ", cls: "ok" };
-}
-
-function renderUnlockZone(){
-  const zone = document.getElementById("unlockZone");
-  if (getAdminKey()) {
-    zone.innerHTML = `<span class="unlocked-tag">✓ ปลดล็อกแล้ว</span>`;
-    return;
-  }
-  zone.innerHTML = `
-    <div class="unlock-row">
-      <input type="password" id="unlockInput" placeholder="รหัสแก้ไขสต็อก (ADMIN_KEY)">
-      <button class="unlock-btn" onclick="unlock()">ปลดล็อก</button>
-    </div>`;
-}
-
-async function unlock(){
-  const val = document.getElementById("unlockInput").value.trim();
-  if (!val) return;
-  setAdminKey(val);
-  const data = await apiGet({ action: "log", key: val });
-  if (data.error) {
-    clearAdminKey();
-    document.getElementById("unlockZone").innerHTML = `
-      <div class="unlock-row">
-        <input type="password" id="unlockInput" placeholder="รหัสแก้ไขสต็อก (ADMIN_KEY)">
-        <button class="unlock-btn" onclick="unlock()">ปลดล็อก</button>
-      </div>
-      <div class="row-msg err">รหัสไม่ถูกต้อง</div>`;
-    return;
-  }
-  renderUnlockZone();
-  renderStockTable();
-  renderLog(data);
 }
 
 function renderStats(){
@@ -331,7 +299,6 @@ function renderStats(){
 }
 
 function renderStockTable(){
-  const unlocked = !!getAdminKey();
   document.getElementById("stockBody").innerHTML = PRODUCTS.map(p => {
     const s = stockById[p.id] || { stock: 0, threshold: LOW_STOCK_DEFAULT_THRESHOLD, lastUpdated: "" };
     const status = stockStatus(s.stock, s.threshold);
@@ -347,9 +314,9 @@ function renderStockTable(){
         <td>${p.price} THB</td>
         <td>${s.stock} ชิ้น</td>
         <td><span class="stock-status ${status.cls}">${status.label}</span></td>
-        <td><input type="number" class="stock-input" id="stock-${p.id}" value="${s.stock}" ${unlocked ? "" : "disabled"}></td>
-        <td><input type="text" class="note-input" id="note-${p.id}" placeholder="เช่น รับของเข้าใหม่" ${unlocked ? "" : "disabled"}></td>
-        <td><button class="save-btn" onclick="saveStock('${p.id}')" ${unlocked ? "" : "disabled"}>บันทึก</button></td>
+        <td><input type="number" class="stock-input" id="stock-${p.id}" value="${s.stock}"></td>
+        <td><input type="text" class="note-input" id="note-${p.id}" placeholder="เช่น รับของเข้าใหม่"></td>
+        <td><button class="save-btn" onclick="saveStock('${p.id}')">บันทึก</button></td>
         <td style="font-size:11.5px;opacity:.5;">${updated}</td>
       </tr>
       <tr><td colspan="8" style="padding:0;border:none;"><div class="row-msg" id="rowmsg-${p.id}"></div></td></tr>
@@ -364,27 +331,20 @@ async function saveStock(id){
   const msgEl = document.getElementById(`rowmsg-${id}`);
   msgEl.textContent = "กำลังบันทึก...";
   msgEl.className = "row-msg";
-  const result = await apiPost({ key: getAdminKey(), action: "setStock", id, newStock, note });
+  const result = await apiAdminPost("/api/admin/stock-update", { action: "setStock", id, newStock, note });
   if (result.error) {
     msgEl.textContent = "เกิดข้อผิดพลาด: " + result.error;
     msgEl.className = "row-msg err";
-    if (result.error === "unauthorized") { clearAdminKey(); renderUnlockZone(); renderStockTable(); }
     return;
   }
   msgEl.textContent = "บันทึกแล้ว";
   msgEl.className = "row-msg ok";
   await loadStock();
-  if (getAdminKey()) {
-    const data = await apiGet({ action: "log", key: getAdminKey() });
-    renderLog(data);
-  }
+  const data = await apiAdminGet("/api/admin/stock-log");
+  renderLog(data);
 }
 
 function renderLog(data){
-  if (!getAdminKey()) {
-    document.getElementById("logBody").innerHTML = `<tr><td colspan="5" class="empty">ปลดล็อกเพื่อดูประวัติ</td></tr>`;
-    return;
-  }
   if (!data || data.error) {
     document.getElementById("logBody").innerHTML = `<tr><td colspan="5" class="empty">ไม่สามารถโหลดประวัติได้</td></tr>`;
     return;
@@ -423,14 +383,9 @@ async function init(){
     return;
   }
   try {
-    renderUnlockZone();
     await loadStock();
-    if (getAdminKey()) {
-      const data = await apiGet({ action: "log", key: getAdminKey() });
-      renderLog(data);
-    } else {
-      renderLog(null);
-    }
+    const data = await apiAdminGet("/api/admin/stock-log");
+    renderLog(data);
     const now = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
     document.getElementById("lastUpdated").textContent = `อัพเดต ${now} น.`;
   } catch (e) {

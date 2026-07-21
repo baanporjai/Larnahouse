@@ -20,9 +20,10 @@
  *                                standalone Apps Script project, see
  *                                _expense-apps-script-reference.gs)
  *   INVENTORY_API_URL          — Apps Script Web App URL for the Stock sheet
- *                                (see google-apps-script/Code.gs, deployed for
- *                                stock.html) — used here to deduct stock when
- *                                a website order comes in
+ *                                (see google-apps-script/Code.gs) — used both to
+ *                                deduct stock when a website order comes in, and
+ *                                to proxy stock.html's log/edit calls (below) so
+ *                                the ADMIN_KEY never ships in client-side code
  *   INVENTORY_ADMIN_KEY        — ADMIN_KEY Script Property set on that same
  *                                Apps Script project
  *
@@ -67,6 +68,14 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/api/admin/expenses') {
       return handleAdminExpenseWrite(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/admin/stock-log') {
+      return handleAdminStockLog(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/admin/stock-update') {
+      return handleAdminStockUpdate(request, env);
     }
 
     return json({ ok: false, error: 'Not found' }, 404, CORS_HEADERS);
@@ -284,6 +293,57 @@ async function handleAdminExpenseWrite(request, env) {
   } catch (err) {
     console.log('Expense webhook error:', err);
     return json({ success: false, error: 'Failed to save expense' }, 502, CORS_HEADERS);
+  }
+}
+
+// อ่านประวัติการปรับสต็อก (หน้า stock.html) — ต้องผ่าน PIN token เพราะ Apps Script
+// เจ้าของ endpoint นี้ต้องการ ADMIN_KEY ซึ่งเก็บไว้ที่ Worker เท่านั้น ไม่ส่งให้ client
+// รู้ค่าจริงเลย (ต่างจากตอนแรกที่ stock.html เก็บ ADMIN_KEY ไว้ในไฟล์ js ที่ push ขึ้น
+// public repo ได้ตรงๆ — ย้ายมาพร็อกซีผ่าน Worker แทนเพื่อไม่ให้ secret หลุดขึ้น GitHub)
+async function handleAdminStockLog(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  try {
+    const target = new URL(env.INVENTORY_API_URL);
+    target.searchParams.set('action', 'log');
+    target.searchParams.set('key', env.INVENTORY_ADMIN_KEY);
+    const res = await fetch(target.toString());
+    const text = await res.text();
+    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.log('Stock log proxy error:', err);
+    return json({ error: 'Failed to fetch stock log' }, 502, CORS_HEADERS);
+  }
+}
+
+// แก้ไขจำนวนสต็อก (ปุ่ม "บันทึก" ในหน้า stock.html) — client ส่งมาแค่ {action, id, newStock/delta, note}
+// ไม่มี key เลย, Worker เป็นคนแปะ INVENTORY_ADMIN_KEY จริงให้เองก่อน forward ไป Apps Script
+async function handleAdminStockUpdate(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  let data;
+  try {
+    data = await request.json();
+  } catch {
+    return json({ error: 'Invalid JSON' }, 400, CORS_HEADERS);
+  }
+
+  try {
+    const res = await fetch(env.INVENTORY_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ ...data, key: env.INVENTORY_ADMIN_KEY }),
+      redirect: 'follow',
+    });
+    const text = await res.text();
+    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.log('Stock update proxy error:', err);
+    return json({ error: 'Failed to update stock' }, 502, CORS_HEADERS);
   }
 }
 
