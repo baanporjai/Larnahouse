@@ -195,6 +195,10 @@ nav.main-nav a.btn-primary:hover{color:#fff;}
   box-shadow:var(--shadow-sm);
 }
 .howto-icon{font-size:38px;margin:10px 0 14px;}
+.howto-icon img{
+  width:64px;height:64px;border-radius:50%;object-fit:cover;
+  display:block;margin:0 auto;box-shadow:var(--shadow-sm);
+}
 .howto-step h4{font-size:17px;color:var(--choco-dark);margin-bottom:8px;}
 .howto-step p{font-size:14px;color:var(--muted);margin:0;line-height:1.6;}
 
