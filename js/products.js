@@ -199,14 +199,14 @@ const PRODUCTS = [
     }
   },
   {
-    id: "crispy-larna",
+    id: "mini-crispy-larna",
     price: 80,
     weight: "60 g",
     box: "6.2 × 9.5 × 3.3 cm",
     badge: { th: "รางวัล 2024", en: "Award 2024", zh: "2024获奖", ko: "2024 수상작" },
     img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/cdb3545b-9fc4-4931-a8ae-bb4f2d96e7f0.png",
     img2: "images/crunchy.jpg",
-    name: { th: "ครันชี่ ลาร์นา เค้ก", en: "Crispy Larna Cake", zh: "脆脆拉尔纳蛋糕", ko: "크리스피 라르나 케이크" },
+    name: { th: "มินิ ครันชี่ ลาร์นา เค้ก", en: "Crispy Larna Cake", zh: "脆脆拉尔纳蛋糕", ko: "크리스피 라르나 케이크" },
     tag: {
       th: "เนื้อนุ่มของบราวนี่รางวัล ผสานครันชี่กรุบกรอบ",
       en: "Award-winning brownie base meets crunchy topping",
