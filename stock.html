@@ -230,6 +230,8 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
           <th>คงเหลือ</th>
           <th>สถานะ</th>
           <th>แก้ไขจำนวน</th>
+          <th>ต้นทุน/หน่วย</th>
+          <th>กำไร/หน่วย</th>
           <th>หมายเหตุ</th>
           <th></th>
           <th>อัปเดตล่าสุด</th>
@@ -292,6 +294,7 @@ async function apiAdminPost(path, payload){
 }
 
 let stockById = {};
+let costById = {}; // ต้นทุนต่อหน่วย — โหลดแยกผ่าน Worker (ADMIN_KEY-gated) ไม่ใช้ apiGet ตรงๆ เพราะ action=stock เป็น public
 
 function stockStatus(stock, threshold){
   if (stock <= 0) return { label: "หมด", cls: "out" };
@@ -315,11 +318,22 @@ function renderStats(){
   `;
 }
 
+function updateProfitDisplay(id, price){
+  const costInput = document.getElementById(`cost-${id}`);
+  const el = document.getElementById(`profit-${id}`);
+  if (!costInput || !el) return;
+  const cost = costInput.value === "" ? null : Number(costInput.value);
+  el.textContent = cost === null || isNaN(cost) ? "—" : `${(price - cost).toLocaleString()} THB`;
+}
+
 function renderStockTable(){
   document.getElementById("stockBody").innerHTML = PRODUCTS.map(p => {
     const s = stockById[p.id] || { stock: 0, threshold: LOW_STOCK_DEFAULT_THRESHOLD, lastUpdated: "" };
+    const c = costById[p.id];
     const status = stockStatus(s.stock, s.threshold);
     const updated = s.lastUpdated ? new Date(s.lastUpdated).toLocaleString("th-TH") : "—";
+    const costVal = c && c.cost != null ? c.cost : "";
+    const profitText = costVal === "" ? "—" : `${(p.price - Number(costVal)).toLocaleString()} THB`;
     return `
       <tr>
         <td>
@@ -332,23 +346,27 @@ function renderStockTable(){
         <td>${s.stock} ชิ้น</td>
         <td><span class="stock-status ${status.cls}">${status.label}</span></td>
         <td><input type="number" class="stock-input" id="stock-${p.id}" value="${s.stock}"></td>
+        <td><input type="number" class="stock-input" id="cost-${p.id}" value="${costVal}" placeholder="—" oninput="updateProfitDisplay('${p.id}', ${p.price})"></td>
+        <td id="profit-${p.id}">${profitText}</td>
         <td><input type="text" class="note-input" id="note-${p.id}" placeholder="เช่น รับของเข้าใหม่"></td>
         <td><button class="save-btn" onclick="saveStock('${p.id}')">บันทึก</button></td>
         <td style="font-size:11.5px;opacity:.5;">${updated}</td>
       </tr>
-      <tr><td colspan="8" style="padding:0;border:none;"><div class="row-msg" id="rowmsg-${p.id}"></div></td></tr>
+      <tr><td colspan="10" style="padding:0;border:none;"><div class="row-msg" id="rowmsg-${p.id}"></div></td></tr>
     `;
   }).join("");
 }
 
 async function saveStock(id){
   const input = document.getElementById(`stock-${id}`);
+  const costInput = document.getElementById(`cost-${id}`);
   const note = document.getElementById(`note-${id}`).value.trim();
   const newStock = Number(input.value);
+  const cost = costInput.value === "" ? undefined : Number(costInput.value);
   const msgEl = document.getElementById(`rowmsg-${id}`);
   msgEl.textContent = "กำลังบันทึก...";
   msgEl.className = "row-msg";
-  const result = await apiAdminPost("/api/admin/stock-update", { action: "setStock", id, newStock, note });
+  const result = await apiAdminPost("/api/admin/stock-update", { action: "setStock", id, newStock, note, cost });
   if (result.error) {
     msgEl.textContent = "เกิดข้อผิดพลาด: " + result.error;
     msgEl.className = "row-msg err";
@@ -357,6 +375,7 @@ async function saveStock(id){
   msgEl.textContent = "บันทึกแล้ว";
   msgEl.className = "row-msg ok";
   await loadStock();
+  await loadCost();
   const data = await apiAdminGet("/api/admin/stock-log");
   renderLog(data);
 }
@@ -392,6 +411,14 @@ async function loadStock(){
   renderStockTable();
 }
 
+async function loadCost(){
+  const data = await apiAdminGet("/api/admin/stock-cost");
+  if (!data || data.error) return; // ไม่ต้องพังทั้งหน้า — แค่ไม่มีคอลัมน์ต้นทุนให้ดู (เช่น ยังไม่ได้เพิ่มคอลัมน์ cost ในชีต)
+  costById = {};
+  (data.products || []).forEach(p => { costById[p.id] = p; });
+  renderStockTable();
+}
+
 async function init(){
   document.getElementById("lastUpdated").textContent = "กำลังโหลด...";
   if (!INVENTORY_API_URL) {
@@ -401,6 +428,7 @@ async function init(){
   }
   try {
     await loadStock();
+    await loadCost();
     const data = await apiAdminGet("/api/admin/stock-log");
     renderLog(data);
     const now = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });

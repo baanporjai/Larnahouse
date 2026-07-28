@@ -2,8 +2,13 @@
  * Larna Cake — Inventory backend (Google Apps Script Web App)
  * Reads/writes stock counts from a Google Sheet with two tabs: "Stock" and "Log".
  *
- * Stock sheet headers (row 1): id | name | stock | threshold | lastUpdated
+ * Stock sheet headers (row 1): id | name | stock | threshold | lastUpdated | cost
  * Log sheet headers (row 1):   timestamp | id | oldStock | newStock | delta | note
+ *
+ * "cost" (ต้นทุนต่อหน่วย) is deliberately left out of the public `action=stock`
+ * response — it's margin-sensitive and that action has no key check (the public
+ * storefront pages call it directly). It's only readable via `action=stockAdmin`,
+ * which requires ADMIN_KEY, same as `action=log`.
  *
  * Deploy: Extensions > Apps Script > paste this file > Deploy > New deployment
  *   Type: Web app · Execute as: Me · Who has access: Anyone
@@ -38,6 +43,12 @@ function doGet(e) {
     }
     return jsonResponse_(getLogData_());
   }
+  if (action === 'stockAdmin') {
+    if (e.parameter.key !== getAdminKey_()) {
+      return jsonResponse_({ error: 'unauthorized' });
+    }
+    return jsonResponse_(getStockData_(true));
+  }
   return jsonResponse_({ error: 'unknown action' });
 }
 
@@ -52,7 +63,8 @@ function doPost(e) {
     return jsonResponse_({ error: 'unauthorized' });
   }
   if (payload.action === 'setStock') {
-    return jsonResponse_(setStock_(payload.id, Number(payload.newStock), payload.note || ''));
+    var cost = payload.cost !== undefined && payload.cost !== null && payload.cost !== '' ? Number(payload.cost) : undefined;
+    return jsonResponse_(setStock_(payload.id, Number(payload.newStock), payload.note || '', cost));
   }
   if (payload.action === 'adjustStock') {
     return jsonResponse_(adjustStock_(payload.id, Number(payload.delta), payload.note || ''));
@@ -67,7 +79,8 @@ function getLogSheet_() {
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LOG);
 }
 
-function getStockData_() {
+// includeCost=true only from action=stockAdmin (ADMIN_KEY-gated) — never from the public action=stock
+function getStockData_(includeCost) {
   var sheet = getStockSheet_();
   var values = sheet.getDataRange().getValues();
   var headers = values[0];
@@ -76,22 +89,27 @@ function getStockData_() {
   var stockIdx = headers.indexOf('stock');
   var thresholdIdx = headers.indexOf('threshold');
   var updatedIdx = headers.indexOf('lastUpdated');
+  var costIdx = headers.indexOf('cost');
   var result = [];
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
     if (!row[idIdx]) continue;
-    result.push({
+    var item = {
       id: row[idIdx],
       name: row[nameIdx],
       stock: Number(row[stockIdx]) || 0,
       threshold: Number(row[thresholdIdx]) || 0,
       lastUpdated: row[updatedIdx] ? new Date(row[updatedIdx]).toISOString() : ''
-    });
+    };
+    if (includeCost) {
+      item.cost = costIdx > -1 ? (Number(row[costIdx]) || 0) : 0;
+    }
+    result.push(item);
   }
   return { products: result };
 }
 
-function setStock_(id, newStock, note) {
+function setStock_(id, newStock, note, cost) {
   if (isNaN(newStock)) {
     return { error: 'invalid stock value' };
   }
@@ -104,6 +122,7 @@ function setStock_(id, newStock, note) {
     var idIdx = headers.indexOf('id');
     var stockIdx = headers.indexOf('stock');
     var updatedIdx = headers.indexOf('lastUpdated');
+    var costIdx = headers.indexOf('cost');
     var rowIndex = -1;
     var oldStock = null;
     for (var i = 1; i < values.length; i++) {
@@ -119,6 +138,9 @@ function setStock_(id, newStock, note) {
     var now = new Date();
     sheet.getRange(rowIndex, stockIdx + 1).setValue(newStock);
     sheet.getRange(rowIndex, updatedIdx + 1).setValue(now);
+    if (cost !== undefined && !isNaN(cost) && costIdx > -1) {
+      sheet.getRange(rowIndex, costIdx + 1).setValue(cost);
+    }
     appendLog_(id, oldStock, newStock, note, now);
     return { success: true, id: id, oldStock: oldStock, newStock: newStock };
   } finally {

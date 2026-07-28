@@ -74,6 +74,10 @@ export default {
       return handleAdminStockLog(request, env);
     }
 
+    if (request.method === 'GET' && url.pathname === '/api/admin/stock-cost') {
+      return handleAdminStockCost(request, env);
+    }
+
     if (request.method === 'POST' && url.pathname === '/api/admin/stock-update') {
       return handleAdminStockUpdate(request, env);
     }
@@ -315,6 +319,27 @@ async function handleAdminStockLog(request, env) {
   } catch (err) {
     console.log('Stock log proxy error:', err);
     return json({ error: 'Failed to fetch stock log' }, 502, CORS_HEADERS);
+  }
+}
+
+// อ่านต้นทุนต่อหน่วยของสต็อก (คอลัมน์ "ต้นทุน" ในหน้า stock.html) — เหมือน handleAdminStockLog
+// แต่ดึง action=stockAdmin แทน เพราะ cost เป็นข้อมูลอ่อนไหวด้านมาร์จิ้น ต้องผ่าน ADMIN_KEY เท่านั้น
+// (action=stock ที่หน้าเว็บ public เรียกตรงได้ไม่ต้องมี key จะไม่มี cost ติดมาด้วยเลย)
+async function handleAdminStockCost(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  try {
+    const target = new URL(env.INVENTORY_API_URL);
+    target.searchParams.set('action', 'stockAdmin');
+    target.searchParams.set('key', env.INVENTORY_ADMIN_KEY);
+    const res = await fetch(target.toString());
+    const text = await res.text();
+    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.log('Stock cost proxy error:', err);
+    return json({ error: 'Failed to fetch stock cost' }, 502, CORS_HEADERS);
   }
 }
 
