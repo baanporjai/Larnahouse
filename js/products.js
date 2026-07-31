@@ -452,6 +452,34 @@ const PRODUCTS = [
       zh: "请存放于密封容器中，置于室温环境，避免潮湿与阳光直射，以保持最佳口感。",
       ko: "최상의 식감을 위해 밀폐 용기에 담아 실온에서 보관하고, 습기와 직사광선을 피해주세요."
     }
+  },
+  {
+    id: "dubai-pistachio-cookie",
+    frozen: false,
+    price: 80,
+    weight: "55 g",
+    box: "ถุงซีลเดี่ยว 1 ชิ้น",
+    badge: { th: "ของใหม่", en: "New", zh: "新品", ko: "신제품" },
+    img: "https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/image/997c77eb-35df-4a6f-abf2-8362da451d60.jpeg",
+    name: { th: "คุกกี้ดูไบ ลาร์นา ไส้พิสตาชิโอ", en: "Larna Dubai Pistachio Cookie", zh: "拉尔纳迪拜开心果曲奇", ko: "라르나 두바이 피스타치오 쿠키" },
+    tag: {
+      th: "คุกกี้ดูไบสุดเข้มข้น พิสตาชิโอแท้ + คูนาฟ่ากรอบจาก I'M NUTS",
+      en: "The most intense Dubai-style cookie — real pistachio + crispy kunafa from I'M NUTS",
+      zh: "浓郁迪拜风味曲奇——真开心果 + I'M NUTS酥脆库纳法",
+      ko: "가장 진한 두바이 스타일 쿠키 — 진짜 피스타치오 + I'M NUTS의 바삭한 쿠나파"
+    },
+    desc: {
+      th: "คุกกี้ดูไบช็อกโกแลตแท้ ไส้พิสตาชิโอเข้มข้นที่สุด อัดแน่นด้วยเส้นกรอบคูนาฟ่าและพิสตาชิโอเกรดพรีเมียมจาก I'M NUTS ผสานกับช็อกโกแลตแท้และเนยแท้ ไม่มีวัตถุกันเสีย",
+      en: "A real chocolate Dubai-style cookie with the most intense pistachio filling, packed with crispy kunafa strands and premium pistachio from I'M NUTS, made with real chocolate and real butter — no preservatives.",
+      zh: "正宗巧克力迪拜风味曲奇，开心果馅料浓郁十足，加入酥脆库纳法丝与I'M NUTS优质开心果，选用真正巧克力与黄油制作，不含防腐剂。",
+      ko: "진짜 초콜릿으로 만든 두바이 스타일 쿠키. 가장 진한 피스타치오 필링에 바삭한 쿠나파와 I'M NUTS의 프리미엄 피스타치오를 가득 채웠습니다. 진짜 초콜릿과 버터로 만들었으며 보존제는 첨가하지 않았습니다."
+    },
+    serving: {
+      th: "แช่เย็นเก็บได้นานสูงสุด 1 เดือน หรือแช่แข็งได้นานสูงสุด 6 เดือน ก่อนทานอบ 1 นาที หรืออุ่นไมโครเวฟไฟกลาง 10-30 วินาที เพื่อสัมผัสนุ่มเคี้ยวหนึบที่สุด",
+      en: "Refrigerate up to 1 month, or freeze up to 6 months. Toast for 1 minute or microwave on medium for 10–30 seconds before eating for the best chewy texture.",
+      zh: "冷藏可保存最长1个月，冷冻可保存最长6个月。食用前烤1分钟或用中火微波10-30秒，口感最有嚼劲。",
+      ko: "냉장 보관 시 최대 1개월, 냉동 보관 시 최대 6개월 보관 가능합니다. 가장 쫄깃한 식감을 위해 먹기 전 1분간 토스트하거나 전자레인지 중불에서 10~30초 데워주세요."
+    }
   }
 ];
 
