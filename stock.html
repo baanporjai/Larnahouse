@@ -348,7 +348,8 @@ async function saveStock(id){
   const msgEl = document.getElementById(`rowmsg-${id}`);
   msgEl.textContent = "กำลังบันทึก...";
   msgEl.className = "row-msg";
-  const result = await apiAdminPost("/api/admin/stock-update", { action: "setStock", id, newStock, note });
+  const product = PRODUCTS.find(p => p.id === id);
+  const result = await apiAdminPost("/api/admin/stock-update", { action: "setStock", id, newStock, note, name: product ? product.name.th : id });
   if (result.error) {
     msgEl.textContent = "เกิดข้อผิดพลาด: " + result.error;
     msgEl.className = "row-msg err";

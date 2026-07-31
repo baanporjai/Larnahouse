@@ -64,7 +64,7 @@ function doPost(e) {
   }
   if (payload.action === 'setStock') {
     var cost = payload.cost !== undefined && payload.cost !== null && payload.cost !== '' ? Number(payload.cost) : undefined;
-    return jsonResponse_(setStock_(payload.id, Number(payload.newStock), payload.note || '', cost));
+    return jsonResponse_(setStock_(payload.id, Number(payload.newStock), payload.note || '', cost, payload.name || ''));
   }
   if (payload.action === 'adjustStock') {
     return jsonResponse_(adjustStock_(payload.id, Number(payload.delta), payload.note || ''));
@@ -109,7 +109,9 @@ function getStockData_(includeCost) {
   return { products: result };
 }
 
-function setStock_(id, newStock, note, cost) {
+var STOCK_NEW_PRODUCT_DEFAULT_THRESHOLD = 5; // เหมือน LOW_STOCK_DEFAULT_THRESHOLD ใน stock.html
+
+function setStock_(id, newStock, note, cost, name) {
   if (isNaN(newStock)) {
     return { error: 'invalid stock value' };
   }
@@ -120,7 +122,9 @@ function setStock_(id, newStock, note, cost) {
     var values = sheet.getDataRange().getValues();
     var headers = values[0];
     var idIdx = headers.indexOf('id');
+    var nameIdx = headers.indexOf('name');
     var stockIdx = headers.indexOf('stock');
+    var thresholdIdx = headers.indexOf('threshold');
     var updatedIdx = headers.indexOf('lastUpdated');
     var costIdx = headers.indexOf('cost');
     var rowIndex = -1;
@@ -132,12 +136,25 @@ function setStock_(id, newStock, note, cost) {
         break;
       }
     }
-    if (rowIndex === -1) {
-      return { error: 'product not found' };
-    }
     var now = new Date();
+    if (rowIndex === -1) {
+      // สินค้าใหม่ที่ยังไม่เคยมีแถวในชีต Stock — สร้างแถวใหม่ให้เลยแทนที่จะ error ทิ้ง
+      // ต้องให้ user ไปเพิ่มแถวเองในชีต (ที่มาของ error "product not found" เดิม)
+      oldStock = 0;
+      var newRow = [];
+      newRow[idIdx] = id;
+      newRow[nameIdx] = name || id;
+      newRow[stockIdx] = newStock;
+      newRow[thresholdIdx] = STOCK_NEW_PRODUCT_DEFAULT_THRESHOLD;
+      newRow[updatedIdx] = now;
+      if (costIdx > -1) newRow[costIdx] = (cost !== undefined && !isNaN(cost)) ? cost : '';
+      sheet.appendRow(newRow);
+      appendLog_(id, oldStock, newStock, note, now);
+      return { success: true, id: id, oldStock: oldStock, newStock: newStock, created: true };
+    }
     sheet.getRange(rowIndex, stockIdx + 1).setValue(newStock);
     sheet.getRange(rowIndex, updatedIdx + 1).setValue(now);
+    if (name && nameIdx > -1) sheet.getRange(rowIndex, nameIdx + 1).setValue(name);
     if (cost !== undefined && !isNaN(cost) && costIdx > -1) {
       sheet.getRange(rowIndex, costIdx + 1).setValue(cost);
     }
