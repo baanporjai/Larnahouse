@@ -238,6 +238,22 @@ function saveCart(cart){
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
 }
 
+// ตัดจำนวนในตะกร้าที่เกินสต็อกปัจจุบันทิ้งทันทีที่รู้ข้อมูลสต็อกจริง (ตอนโหลดหน้าครั้งแรก และก่อนส่งออเดอร์) —
+// กันเคสที่ตะกร้าค้างไว้จากตอนที่ availableStock() ยังคืนค่า null (สต็อกยังไม่ถูกเพิ่มเข้าระบบ = ไม่จำกัด)
+// แล้วพอสต็อกจริงเข้ามาทีหลัง ตัวเลขในตะกร้าเก่าไม่ถูกหักลงมาให้เอง ต้องคลิก +/- ก่อนถึงจะโดนจำกัดจริง
+function clampCartToStock(){
+  const cart = getCart();
+  let changed = false;
+  Object.keys(cart).forEach(id => {
+    const stock = availableStock(id);
+    if (stock === null) return;
+    if (stock <= 0) { delete cart[id]; changed = true; }
+    else if (cart[id] > stock) { cart[id] = stock; changed = true; }
+  });
+  if (changed) saveCart(cart);
+  return changed;
+}
+
 function changeQty(id, delta){
   const cart = getCart();
   const stock = availableStock(id);
@@ -426,14 +442,7 @@ async function submitOrder(e){
     return stock !== null && qty > stock;
   });
   if (outOfRange) {
-    const cart = getCart();
-    lines.forEach(({p, qty}) => {
-      const stock = availableStock(p.id);
-      if (stock === null) return;
-      if (stock <= 0) delete cart[p.id];
-      else if (qty > stock) cart[p.id] = stock;
-    });
-    saveCart(cart);
+    clampCartToStock();
     renderOrderPicker();
     renderCart();
     alert(t('order_validation_stock'));
@@ -494,7 +503,7 @@ function resetOrderForm(){
 
 renderOrderPicker();
 renderCart();
-loadStockData().then(() => { renderOrderPicker(); renderCart(); });
+loadStockData().then(() => { clampCartToStock(); renderOrderPicker(); renderCart(); });
 </script>
 </body>
 </html>
