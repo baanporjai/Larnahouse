@@ -26,11 +26,41 @@
  *                                the ADMIN_KEY never ships in client-side code
  *   INVENTORY_ADMIN_KEY        — ADMIN_KEY Script Property set on that same
  *                                Apps Script project
+ *   LINE_CHANNEL_SECRET        — Channel secret (คนละค่ากับ LINE_CHANNEL_ACCESS_TOKEN)
+ *                                จาก channel เดิม (Basic settings tab) — ใช้ตรวจลายเซ็น
+ *                                webhook ที่ยิงเข้ามา กันคนปลอม request มาสั่งงานบอท
+ *   GEMINI_API_KEY             — API key จาก aistudio.google.com/apikey — ใช้ให้ Gemini
+ *                                ช่วยอ่าน/แปลงข้อความแอดมินในกลุ่มเป็นออเดอร์ที่มีโครงสร้าง
  *
  * See LINE-ORDER-BACKEND-SETUP.md for full setup steps.
  */
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 ชั่วโมง
+
+// ── AI order assistant (กลุ่มไลน์แอดมิน) ──
+// แอดมินพิมพ์ออเดอร์แบบข้อความอิสระในกลุ่มนี้ บอทจะให้ Gemini แปลงเป็นออเดอร์แล้วบันทึกลงชีตทันที
+// ใส่ group ID ของกลุ่มแอดมินที่นี่ (ไม่ใช่ข้อมูลลับ ไม่ต้องเก็บเป็น secret) — รองรับได้หลายกลุ่ม
+const ADMIN_GROUP_IDS = [
+  // 'REPLACE_WITH_YOUR_LINE_GROUP_ID',
+];
+
+// Product catalog แบบย่อ (id/ชื่อไทย/ราคา) — คัดมาจาก js/products.js ด้วยมือ สำหรับให้ Gemini
+// จับคู่ชื่อสินค้าที่แอดมินพิมพ์ ไม่ได้ import ตรงจาก products.js เพราะไฟล์นั้นเป็นของฝั่งเว็บ (browser)
+// **ถ้า products.js เปลี่ยนราคา/เพิ่มสินค้าใหม่ ต้องมาอัปเดต list นี้ด้วยมือ**
+const PRODUCT_CATALOG = [
+  { id: 'mini-larna', name: 'มินิ ลาร์นา เค้ก (ออริจินัล)', price: 60 },
+  { id: 'mini-white', name: 'มินิ ไวท์ ลาร์นา เค้ก', price: 60 },
+  { id: 'mini-matcha', name: 'มินิ มัทฉะ ลาร์นา เค้ก', price: 60 },
+  { id: 'mini-thai-tea', name: 'มินิ ชาไทย ลาร์นา เค้ก', price: 60 },
+  { id: 'mini-espresso', name: 'มินิ เอสเพรสโซ่ ลาร์นา เค้ก', price: 60 },
+  { id: 'mini-mango', name: 'มินิ มะม่วง ลาร์นา เค้ก', price: 80 },
+  { id: 'mini-dubai-pistachio', name: 'มินิ ดูไบ ลาร์นา เค้ก พิสตาชิโอ', price: 80 },
+  { id: 'mini-crispy-larna', name: 'มินิ ครันชี่ ลาร์นา เค้ก', price: 80 },
+  { id: 'marshmallow-cookie', name: 'คุกกี้มาร์ชเมลโล่ ลาร์นา', price: 60 },
+  { id: 'marshmallow-cookie-nibs', name: 'คุกกี้มาร์ชเมลโล่คาเคานิบส์ ลาร์นา', price: 60 },
+  { id: 'marshmallow-cookie-almond', name: 'คุกกี้มาร์ชเมลโล่อัลมอนด์ ลาร์นา', price: 60 },
+  { id: 'dubai-pistachio-cookie', name: 'คุกกี้ดูไบ ลาร์นา ไส้พิสตาชิโอ', price: 80 },
+];
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,7 +69,7 @@ const CORS_HEADERS = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
@@ -80,6 +110,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/api/admin/stock-update') {
       return handleAdminStockUpdate(request, env);
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/line/webhook') {
+      return handleLineWebhook(request, env, ctx);
     }
 
     return json({ ok: false, error: 'Not found' }, 404, CORS_HEADERS);
@@ -369,6 +403,272 @@ async function handleAdminStockUpdate(request, env) {
   } catch (err) {
     console.log('Stock update proxy error:', err);
     return json({ error: 'Failed to update stock' }, 502, CORS_HEADERS);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// AI order assistant (กลุ่มไลน์แอดมิน) — พอร์ตมาจาก OFresh's order-api-worker.js
+// บันทึกออเดอร์ลงชีตทันทีที่ parse ได้ ไม่มีขั้นตอนยืนยัน — ถ้า AI parse ผิด แก้ไขได้ทันที
+// ด้วยปุ่ม "ยกเลิกออเดอร์นี้" ที่แนบมาด้วยทุกครั้ง หรือแก้สถานะในแดชบอร์ด (dashboard.html)
+// ══════════════════════════════════════════════════════════════════════
+
+async function handleLineWebhook(request, env, ctx) {
+  // ต้องอ่านเป็น text ดิบก่อน (ไม่ใช่ .json()) เพราะลายเซ็นคำนวณจาก raw body bytes
+  const bodyText = await request.text();
+  const signature = request.headers.get('X-Line-Signature') || '';
+
+  const validSig = await verifyLineSignature(bodyText, signature, env.LINE_CHANNEL_SECRET);
+  if (!validSig) return new Response('Invalid signature', { status: 401 });
+
+  let payload;
+  try {
+    payload = JSON.parse(bodyText);
+  } catch {
+    return new Response('Invalid JSON', { status: 400 });
+  }
+
+  const events = Array.isArray(payload.events) ? payload.events : [];
+  for (const event of events) {
+    const isAdminGroup = event.source && event.source.type === 'group' && ADMIN_GROUP_IDS.includes(event.source.groupId);
+    if (!isAdminGroup) continue;
+
+    // ตอบ LINE ให้เร็วที่สุด (200 ทันที) แล้วประมวลผลจริงต่อเบื้องหลังผ่าน waitUntil
+    // เพราะเรียก Gemini + เขียนชีตอาจใช้เวลาหลายวินาที ไม่ควรให้ LINE รอ
+    if (event.type === 'message' && event.message && event.message.type === 'text') {
+      ctx.waitUntil(handleIncomingText(event, env).catch(err => console.log('handleIncomingText error:', err)));
+    } else if (event.type === 'postback') {
+      ctx.waitUntil(handlePostback(event, env).catch(err => console.log('handlePostback error:', err)));
+    }
+  }
+
+  return new Response('OK', { status: 200 });
+}
+
+// LINE เซ็นลายเซ็นเป็น base64(HMAC-SHA256(channelSecret, rawBody)) มาตรฐาน (ไม่ใช่ base64url)
+async function verifyLineSignature(bodyText, signatureB64, channelSecret) {
+  if (!channelSecret || !signatureB64) return false;
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(channelSecret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(bodyText));
+  const expected = btoa(String.fromCharCode(...new Uint8Array(sig)));
+  return timingSafeEqual(expected, signatureB64);
+}
+
+async function handleIncomingText(event, env) {
+  const text = (event.message.text || '').trim();
+  const replyToken = event.replyToken;
+
+  let parsed;
+  try {
+    parsed = await parseOrderFromMessage(text, env);
+  } catch (err) {
+    console.log('parseOrderFromMessage failed:', err);
+    await replyToLine(env, replyToken, [{ type: 'text', text: '⚠️ อ่านข้อความไม่สำเร็จ (AI error) รบกวนลองพิมพ์ใหม่อีกครั้งครับ' }]);
+    return;
+  }
+
+  if (!parsed.isOrder) return; // ข้อความคุยเล่นทั่วไป ไม่ใช่ออเดอร์ — เงียบไว้ ไม่ต้องตอบ
+
+  const { items, unknownItemNames } = resolveOrderItems(parsed.items);
+  if (items.length === 0) {
+    await replyToLine(env, replyToken, [{
+      type: 'text',
+      text: `⚠️ ไม่พบสินค้าที่พิมพ์มาในเมนูเลยครับ (${unknownItemNames.join(', ') || 'ไม่ระบุ'}) รบกวนตรวจชื่อสินค้าอีกครั้ง`,
+    }]);
+    return;
+  }
+
+  const total = items.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const id = crypto.randomUUID();
+  const order = {
+    id,
+    name: parsed.name || '',
+    phone: parsed.phone || '',
+    address: parsed.address || '',
+    date: parsed.date || '',
+    items,
+    total,
+    fulfillment: parsed.fulfillment === 'delivery' ? 'delivery' : 'pickup',
+    note: [parsed.note, unknownItemNames.length ? `(พิมพ์มาแต่ไม่พบในเมนู: ${unknownItemNames.join(', ')})` : null].filter(Boolean).join(' '),
+  };
+
+  try {
+    await saveOrderToSheet(env, order);
+  } catch (err) {
+    console.log('saveOrderToSheet failed:', err);
+    await replyToLine(env, replyToken, [{ type: 'text', text: '⚠️ บันทึกออเดอร์ไม่สำเร็จ รบกวนกรอกในแดชบอร์ดเองหรือลองพิมพ์ใหม่อีกครั้งครับ' }]);
+    return;
+  }
+
+  await replyToLine(env, replyToken, [
+    { type: 'text', text: buildOrderSummaryText(order, parsed) },
+    { type: 'text', text: '✅ บันทึกออเดอร์นี้แล้วครับ', quickReply: cancelQuickReply(id) },
+  ]);
+}
+
+// จับคู่ items[].id ที่ Gemini ตอบมา กับ PRODUCT_CATALOG จริง — ไม่เชื่อชื่อ/ราคาที่ Gemini ตอบมาตรงๆ
+// (กัน hallucinate ตัวเลข) id ไหนไม่ตรงกับ catalog เลยจะถูกตัดออก แล้วรายงานชื่อที่พิมพ์มาแยกต่างหาก
+function resolveOrderItems(rawItems) {
+  const items = [];
+  const unknownItemNames = [];
+  (rawItems || []).forEach(ri => {
+    const qty = Number(ri.qty) || 0;
+    if (qty <= 0) return;
+    const product = PRODUCT_CATALOG.find(p => p.id === ri.id);
+    if (!product) {
+      unknownItemNames.push(String(ri.id || '').slice(0, 50));
+      return;
+    }
+    items.push({ id: product.id, name: product.name, qty, price: product.price });
+  });
+  return { items, unknownItemNames };
+}
+
+async function parseOrderFromMessage(text, env) {
+  const catalogText = PRODUCT_CATALOG.map(p => `${p.id}: ${p.name} (${p.price} บาท)`).join('\n');
+
+  const systemPrompt = [
+    'คุณคือผู้ช่วยแปลงข้อความแจ้งออเดอร์เค้กที่แอดมินพิมพ์ในแชทกลุ่ม ให้เป็นออเดอร์แบบมีโครงสร้าง',
+    'ตอบกลับเป็น JSON ล้วนๆ เท่านั้น ห้ามมีข้อความอื่นนอก JSON และห้ามใช้ markdown code fence',
+    'รูปแบบ JSON ที่ต้องตอบ:',
+    '{"isOrder":boolean,"name":string,"phone":string,"items":[{"id":string,"qty":number}],"fulfillment":"pickup"|"delivery","address":string,"date":string|null,"note":string,"confidence":number,"missingFields":string[]}',
+    '- isOrder: false ถ้าข้อความนี้ไม่ได้พูดถึงการสั่งซื้อเค้กเลย (เช่น ทักทาย คุยเรื่องอื่น) — ฟิลด์อื่นใส่ค่าว่าง/0 ได้',
+    '- items[].id: ต้องเลือกจาก id ในเมนูด้านล่างเท่านั้น ห้ามสร้าง id ขึ้นเอง ถ้าจับคู่สินค้าที่พิมพ์มากับเมนูไม่ได้เลย ให้ใส่ข้อความที่แอดมินพิมพ์มาแทนที่ id ตรงๆ (โค้ดฝั่งเราจะตรวจจับว่าไม่ตรงกับเมนูเอง)',
+    '- ห้ามคำนวณราคา/total เอง (ไม่มีฟิลด์ total หรือ price ในผลลัพธ์) — ฝั่งโค้ดจะคำนวณจากราคาจริงในเมนูเอง',
+    '- fulfillment: "delivery" ถ้าขอให้จัดส่ง มีที่อยู่ ไม่งั้นถือเป็น "pickup" (รับที่ร้าน)',
+    '- date: แปลงเป็น YYYY-MM-DD ถ้าระบุมา (เช่น "พรุ่งนี้" ให้คำนวณจากวันที่ปัจจุบันที่ให้ไว้) ไม่งั้นใส่ null',
+    '- confidence (0-1): มั่นใจแค่ไหนว่า parse ถูกต้องครบถ้วน ถ้าชื่อสินค้า/จำนวนกำกวม ให้ confidence ต่ำ',
+    '- missingFields: รายชื่อฟิลด์ที่จำเป็น (name, phone, items) ที่ยังขาดหรือไม่ชัดเจน',
+    `วันที่ปัจจุบัน (เวลาไทย): ${new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })}`,
+    'เมนูสินค้า (id: ชื่อ (ราคา)):',
+    catalogText,
+  ].join('\n');
+
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    method: 'POST',
+    headers: {
+      'x-goog-api-key': env.GEMINI_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text }] }],
+      // บังคับให้ตอบเป็น JSON ล้วนๆ ที่ฝั่ง API เลย กันปัญหาโมเดลพันด้วย markdown fence หรือพูดนำ/พูดต่อท้าย
+      generationConfig: { responseMimeType: 'application/json' },
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json();
+  const candidate = data.candidates && data.candidates[0];
+  const raw = (candidate && candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) || '';
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('Gemini response did not contain JSON: ' + raw.slice(0, 200));
+
+  const parsed = JSON.parse(match[0]);
+  return {
+    isOrder: !!parsed.isOrder,
+    name: parsed.name || '',
+    phone: parsed.phone || '',
+    items: Array.isArray(parsed.items) ? parsed.items : [],
+    fulfillment: parsed.fulfillment || 'pickup',
+    address: parsed.address || '',
+    date: parsed.date || '',
+    note: parsed.note || '',
+    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
+    missingFields: Array.isArray(parsed.missingFields) ? parsed.missingFields : [],
+  };
+}
+
+// บันทึกออเดอร์ลงชีตเดียวกับที่ order.html ใช้ (POST ตรงไป SHEETS_URL) — ส่ง id ของเราเองไปด้วย
+// ต่างจาก order.html ปกติที่ไม่ส่ง id (ให้ Apps Script generate เอง) เพื่อให้รู้ id ทันทีสำหรับปุ่มยกเลิก
+async function saveOrderToSheet(env, order) {
+  if (!env.SHEETS_URL) throw new Error('SHEETS_URL not configured');
+  await fetch(env.SHEETS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(order),
+    redirect: 'follow',
+  });
+}
+
+async function cancelOrderInSheet(env, id) {
+  if (!env.SHEETS_URL) throw new Error('SHEETS_URL not configured');
+  const res = await fetch(env.SHEETS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'update_status', id, status: 'ยกเลิก' }),
+    redirect: 'follow',
+  });
+  const text = await res.text();
+  let result;
+  try { result = JSON.parse(text); } catch { result = { ok: res.ok }; }
+  if (!result.ok) throw new Error('Sheet rejected the cancel: ' + text);
+}
+
+async function replyToLine(env, replyToken, messages) {
+  const res = await fetch('https://api.line.me/v2/bot/message/reply', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.LINE_CHANNEL_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ replyToken, messages }),
+  });
+  if (!res.ok) {
+    console.log('LINE reply error:', await res.text());
+  }
+}
+
+function buildOrderSummaryText(order, parsed) {
+  const itemLines = order.items.map(it => `- ${it.name} x${it.qty} = ${it.price * it.qty} บาท`);
+  return [
+    '🍰 บันทึกออเดอร์จากข้อความ',
+    '─────────────────',
+    `👤 ชื่อ: ${order.name || '(ไม่ระบุ)'}`,
+    order.phone ? `📞 เบอร์: ${order.phone}` : null,
+    ...itemLines,
+    `💰 ยอดรวม: ${order.total} บาท`,
+    `รับสินค้า: ${order.fulfillment === 'delivery' ? '🚚 จัดส่ง' : '🏠 รับที่ร้าน'}`,
+    order.fulfillment === 'delivery' && order.address ? `📍 ที่อยู่: ${order.address}` : null,
+    order.date ? `📅 วันที่ต้องการ: ${order.date}` : null,
+    order.note ? `📝 หมายเหตุ: ${order.note}` : null,
+    parsed.missingFields && parsed.missingFields.length ? `⚠️ ข้อมูลที่ยังขาด: ${parsed.missingFields.join(', ')}` : null,
+  ].filter(Boolean).join('\n');
+}
+
+// ปุ่มเดียวแนบไปกับข้อความสรุปหลังบันทึกทุกครั้ง — ทางแก้เร็วสุดถ้า AI parse ผิด
+// (แก้รายละเอียดอื่นๆ นอกจากยกเลิก ทำในแดชบอร์ด dashboard.html แทน)
+function cancelQuickReply(id) {
+  return {
+    items: [
+      { type: 'action', action: { type: 'postback', label: '↩️ ยกเลิกออเดอร์นี้', data: `cancel:${id}`, displayText: 'ยกเลิกออเดอร์นี้' } },
+    ],
+  };
+}
+
+async function handlePostback(event, env) {
+  const data = event.postback.data || '';
+  const sep = data.indexOf(':');
+  if (sep === -1) return;
+  const action = data.slice(0, sep);
+  const id = data.slice(sep + 1);
+  const replyToken = event.replyToken;
+
+  if (action === 'cancel') {
+    try {
+      await cancelOrderInSheet(env, id);
+      await replyToLine(env, replyToken, [{ type: 'text', text: '↩️ ยกเลิกออเดอร์นี้แล้วครับ' }]);
+    } catch (err) {
+      console.log('cancelOrderInSheet failed:', err);
+      await replyToLine(env, replyToken, [{ type: 'text', text: '⚠️ ยกเลิกไม่สำเร็จ รบกวนแก้สถานะในแดชบอร์ดแทนครับ' }]);
+    }
   }
 }
 

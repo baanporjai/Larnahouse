@@ -90,7 +90,8 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // New order
+    // New order — data.id ใช้ตอนมาจาก LINE bot เท่านั้น (ต้องรู้ id ทันทีสำหรับปุ่มยกเลิก)
+    // order.html ปกติไม่ส่ง id มาเลย เลย generate ให้เองเหมือนเดิม (backward compatible)
     const items = (data.items || []).map(i => `${i.name} x${i.qty}`).join(", ");
     sheet.appendRow([
       new Date(),
@@ -102,7 +103,7 @@ function doPost(e) {
       data.total,
       data.note || "-",
       "รอยืนยัน",
-      Utilities.getUuid(),
+      data.id || Utilities.getUuid(),
     ]);
     return ContentService
       .createTextOutput(JSON.stringify({ ok: true }))
