@@ -99,7 +99,7 @@ function doPost(e) {
       data.address || "",
       data.date || "-",
       items,
-      data.total + " THB",
+      data.total,
       data.note || "-",
       "รอยืนยัน",
       Utilities.getUuid(),

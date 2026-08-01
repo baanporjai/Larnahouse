@@ -547,7 +547,7 @@ function openModal(type) {
             <div class="order-items">🛍 ${o.items || "-"}</div>
             ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
           </div>
-          <div class="order-total">${o.total}</div>
+          <div class="order-total">${parseTotal(o.total).toLocaleString("th-TH")} THB</div>
         </div>`).join("");
   } else if (type === "revenue") {
     title.textContent = "💰 ยอดขายรวม — แยกตามเดือน";
@@ -620,7 +620,7 @@ function orderRowHTML(o, opts) {
         ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
         <select class="status-select status-${status}" data-current="${status}" onchange="updateStatus(this,'${row}','${id}')">${statusOptionsHTML(status)}</select>
       </div>
-      <div class="order-total">${o.total}</div>
+      <div class="order-total">${parseTotal(o.total).toLocaleString("th-TH")} THB</div>
     </div>`;
 }
 
