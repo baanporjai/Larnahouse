@@ -41,7 +41,7 @@ const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 ชั่วโมง
 // แอดมินพิมพ์ออเดอร์แบบข้อความอิสระในกลุ่มนี้ บอทจะให้ Gemini แปลงเป็นออเดอร์แล้วบันทึกลงชีตทันที
 // ใส่ group ID ของกลุ่มแอดมินที่นี่ (ไม่ใช่ข้อมูลลับ ไม่ต้องเก็บเป็น secret) — รองรับได้หลายกลุ่ม
 const ADMIN_GROUP_IDS = [
-  // 'REPLACE_WITH_YOUR_LINE_GROUP_ID',
+  'C61a4161fd7df0c9dc420fd16f7083bcb', // Larnacake_admin
 ];
 
 // Product catalog แบบย่อ (id/ชื่อไทย/ราคา) — คัดมาจาก js/products.js ด้วยมือ สำหรับให้ Gemini
