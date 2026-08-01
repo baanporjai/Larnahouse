@@ -190,9 +190,19 @@ async function handleOrder(request, env) {
 // เพราะสั่งก่อนอัปเดตเว็บ หรือ Apps Script ล่มชั่วคราว) ใช้ร่วมกันทั้ง order.html (handleOrder) และ
 // LINE bot (handleIncomingText) — sourceLabel ใส่ต่างกันแค่บอกว่าออเดอร์มาจากช่องทางไหนใน log ของ stock.html
 async function deductStock(env, order, sourceLabel) {
+  await adjustStockForItems(env, order.items, -1, `${sourceLabel} — ${order.name || ''}`.trim());
+}
+
+// คืนสต็อกกลับ (ใช้ตอนยกเลิกออเดอร์) — items ต้องเป็น [{id,qty}] ที่ resolve กับ PRODUCT_CATALOG แล้ว
+async function restoreStock(env, items, sourceLabel) {
+  await adjustStockForItems(env, items, 1, sourceLabel);
+}
+
+// แกนกลางของทั้ง deductStock/restoreStock — sign: -1 = ตัด, +1 = คืน
+async function adjustStockForItems(env, items, sign, note) {
   if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return;
   await Promise.all(
-    order.items.map(async (it) => {
+    (items || []).map(async (it) => {
       if (!it.id) return;
       const qty = Number(it.qty) || 0;
       if (qty <= 0) return;
@@ -204,13 +214,13 @@ async function deductStock(env, order, sourceLabel) {
             key: env.INVENTORY_ADMIN_KEY,
             action: 'adjustStock',
             id: it.id,
-            delta: -qty,
-            note: `${sourceLabel} — ${order.name || ''}`.trim(),
+            delta: sign * qty,
+            note,
           }),
           redirect: 'follow',
         });
       } catch (e) {
-        console.log('Stock deduct failed (non-fatal):', it.id, e);
+        console.log('Stock adjust failed (non-fatal):', it.id, e);
       }
     })
   );
@@ -699,6 +709,47 @@ async function cancelOrderInSheet(env, id) {
   let result;
   try { result = JSON.parse(text); } catch { result = { ok: res.ok }; }
   if (!result.ok) throw new Error('Sheet rejected the cancel: ' + text);
+
+  // สถานะเปลี่ยนสำเร็จแล้ว — คืนสต็อกกลับด้วย (แค่เส้นทางยกเลิกผ่านปุ่มไลน์นี้เท่านั้น ยังไม่ครอบคลุม
+  // การเปลี่ยนสถานะเป็น "ยกเลิก" จากแดชบอร์ด) ไม่ทำให้การยกเลิกล้มเหลวถ้าคืนสต็อกไม่สำเร็จ เพราะสถานะ
+  // อัปเดตไปแล้วจริง แค่ log ไว้เฉยๆ ให้ตามไปแก้สต็อกเองได้ทีหลัง
+  try {
+    await restoreStockForCancelledOrder(env, id);
+  } catch (err) {
+    console.log('restoreStockForCancelledOrder failed (non-fatal, status already updated):', err);
+  }
+}
+
+// หา order ตัวนี้จากชีตอีกทีเพื่อรู้ว่ามีสินค้าอะไรบ้าง (การเรียก update_status ด้านบนไม่ได้ส่ง
+// items ของออเดอร์นั้นกลับมาให้ ต้องไป GET รายการทั้งหมดมาหาเอาเอง)
+async function restoreStockForCancelledOrder(env, id) {
+  if (!env.SHEETS_URL) return;
+  const res = await fetch(env.SHEETS_URL);
+  const data = await res.json();
+  const orders = Array.isArray(data.orders) ? data.orders : [];
+  const order = orders.find(o => String(o.id) === String(id));
+  if (!order) return;
+
+  const items = parseItemsStringToProducts(order.items);
+  if (items.length === 0) return;
+  await restoreStock(env, items, `ยกเลิกออเดอร์ (LINE bot) — ${order.name || ''}`.trim());
+}
+
+// แปลงข้อความในคอลัมน์ "items" ของชีต (เช่น "มินิ ลาร์นา เค้ก (ออริจินัล) x3, มินิ ดูไบ ลาร์นา เค้ก พิสตาชิโอ x2")
+// กลับเป็น [{id,qty}] โดยจับคู่ชื่อกับ PRODUCT_CATALOG — ใช้ได้เพราะชื่อที่เขียนลงชีตมาจาก catalog เป๊ะๆ
+// อยู่แล้วทั้งจากบอทและจากเว็บไซต์ (product.js ชื่อเดียวกัน) ถ้าจับคู่ไม่ได้ (เช่นชื่อสินค้าถูกแก้ทีหลัง)
+// แค่ข้าม item นั้นไปเงียบๆ ไม่ throw
+function parseItemsStringToProducts(itemsStr) {
+  if (!itemsStr) return [];
+  return String(itemsStr).split(',').map(part => {
+    const m = part.trim().match(/^(.+?)\s+x(\d+)$/);
+    if (!m) return null;
+    const name = m[1].trim();
+    const qty = Number(m[2]) || 0;
+    const product = PRODUCT_CATALOG.find(p => p.name === name);
+    if (!product || qty <= 0) return null;
+    return { id: product.id, qty };
+  }).filter(Boolean);
 }
 
 async function replyToLine(env, replyToken, messages) {
