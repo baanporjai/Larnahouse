@@ -429,6 +429,13 @@ async function handleLineWebhook(request, env, ctx) {
 
   const events = Array.isArray(payload.events) ? payload.events : [];
   for (const event of events) {
+    // log group id ของทุกข้อความที่เข้ามา (ไม่ใช่แค่กลุ่มที่อยู่ใน ADMIN_GROUP_IDS แล้ว) — ใช้หา
+    // group id ตอน setup ครั้งแรก ผ่าน Cloudflare dashboard → Worker → Logs → Begin log stream
+    // เอาออกได้ทีหลังเมื่อไม่ต้องใช้แล้ว (ไม่ใช่ข้อมูลลับ ทิ้งไว้ก็ไม่เป็นไร)
+    if (event.source && event.source.type === 'group') {
+      console.log('LINE group message from groupId:', event.source.groupId);
+    }
+
     const isAdminGroup = event.source && event.source.type === 'group' && ADMIN_GROUP_IDS.includes(event.source.groupId);
     if (!isAdminGroup) continue;
 
