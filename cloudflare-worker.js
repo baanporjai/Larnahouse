@@ -467,9 +467,19 @@ async function handleIncomingText(event, env) {
   const text = (event.message.text || '').trim();
   const replyToken = event.replyToken;
 
+  // ดึงประวัติลูกค้าจากชีตเดิม มาช่วย Gemini เดาเบอร์/ที่อยู่ให้ถ้าลูกค้าเคยสั่งมาก่อน — ไม่ cache
+  // (LarnaCake's Worker ไม่มี KV binding) ยิงสดทุกครั้ง ถ้าดึงไม่สำเร็จก็แค่ไม่มี auto-fill เฉยๆ
+  // ไม่ทำให้ทั้งฟีเจอร์พังไปด้วย
+  let customers = [];
+  try {
+    customers = await getCustomerHistory(env);
+  } catch (err) {
+    console.log('getCustomerHistory failed (non-fatal):', err);
+  }
+
   let parsed;
   try {
-    parsed = await parseOrderFromMessage(text, env);
+    parsed = await parseOrderFromMessage(text, customers, env);
   } catch (err) {
     console.log('parseOrderFromMessage failed:', err);
     await replyToLine(env, replyToken, [{ type: 'text', text: '⚠️ อ่านข้อความไม่สำเร็จ (AI error) รบกวนลองพิมพ์ใหม่อีกครั้งครับ' }]);
@@ -515,6 +525,64 @@ async function handleIncomingText(event, env) {
   ]);
 }
 
+// ประวัติลูกค้า group ตามชื่อจากชีต Orders เดิม (ตรรกะเดียวกับ dashboard.html ใช้แสดงผล) — ใช้ล่าสุด
+// ต่อคนมาเป็นเบอร์/ที่อยู่ default ให้ Gemini เดา ถ้าแอดมินพิมพ์แค่ชื่อลูกค้าเก่าไม่ครบทุกฟิลด์
+async function getCustomerHistory(env) {
+  if (!env.SHEETS_URL) return [];
+  const res = await fetch(env.SHEETS_URL);
+  const data = await res.json();
+  const orders = Array.isArray(data.orders) ? data.orders : [];
+
+  const map = new Map();
+  orders.forEach(o => {
+    if (!o.name) return;
+    if (!map.has(o.name)) map.set(o.name, []);
+    map.get(o.name).push(o);
+  });
+
+  return Array.from(map.values()).map(list => {
+    // เรียงตาม timestamp ล่าสุดก่อน — timestamp จากชีตอาจเป็น string วันที่ไทยหรือ ISO ก็ได้
+    // แค่ต้องการลำดับคร่าวๆ พอ ไม่ต้อง parse ให้แม่นเป๊ะเหมือนจุดอื่น
+    list.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    const latest = list[0];
+    return {
+      name: latest.name,
+      phone: latest.phone || '',
+      address: latest.address || '',
+      orderCount: list.length,
+    };
+  });
+}
+
+// เลือกเฉพาะลูกค้าที่มีแนวโน้มเกี่ยวข้องกับข้อความนี้ (ชื่อ/เบอร์ปรากฏในข้อความ) ส่งให้ Gemini
+// แทนที่จะส่งประวัติทั้งหมด — ประหยัด token และลดโอกาส Gemini สับสนจับคู่ผิดคนจากลูกค้าที่ไม่เกี่ยวข้อง
+// (พอร์ตมาจาก O'Fresh's order-api-worker.js แบบเดียวกันเป๊ะๆ)
+function prefilterCustomers(text, customers, limit = 8) {
+  const lower = text.toLowerCase();
+  const digitRuns = text.match(/\d{4,}/g) || [];
+  const scored = customers.map(c => {
+    let score = 0;
+    const nameLower = (c.name || '').toLowerCase();
+    if (nameLower && lower.includes(nameLower)) score += 3;
+    else if (nameLower) {
+      const parts = nameLower.split(/\s+/).filter(p => p.length >= 2);
+      if (parts.some(p => lower.includes(p))) score += 2;
+    }
+    if (c.phone) {
+      const tail = c.phone.slice(-4);
+      if (digitRuns.some(run => run.includes(tail))) score += 3;
+    }
+    if (c.address) {
+      const addrWords = c.address.split(/\s+/).filter(w => w.length >= 3);
+      if (addrWords.some(w => lower.includes(w.toLowerCase()))) score += 1;
+    }
+    return { c, score };
+  });
+  const matched = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score).map(s => s.c);
+  if (matched.length > 0) return matched.slice(0, limit);
+  return customers.slice().sort((a, b) => b.orderCount - a.orderCount).slice(0, 3);
+}
+
 // จับคู่ items[].id ที่ Gemini ตอบมา กับ PRODUCT_CATALOG จริง — ไม่เชื่อชื่อ/ราคาที่ Gemini ตอบมาตรงๆ
 // (กัน hallucinate ตัวเลข) id ไหนไม่ตรงกับ catalog เลยจะถูกตัดออก แล้วรายงานชื่อที่พิมพ์มาแยกต่างหาก
 function resolveOrderItems(rawItems) {
@@ -533,25 +601,32 @@ function resolveOrderItems(rawItems) {
   return { items, unknownItemNames };
 }
 
-async function parseOrderFromMessage(text, env) {
+async function parseOrderFromMessage(text, customers, env) {
   const catalogText = PRODUCT_CATALOG.map(p => `${p.id}: ${p.name} (${p.price} บาท)`).join('\n');
+  const knownCustomers = prefilterCustomers(text, customers);
 
   const systemPrompt = [
     'คุณคือผู้ช่วยแปลงข้อความแจ้งออเดอร์เค้กที่แอดมินพิมพ์ในแชทกลุ่ม ให้เป็นออเดอร์แบบมีโครงสร้าง',
     'ตอบกลับเป็น JSON ล้วนๆ เท่านั้น ห้ามมีข้อความอื่นนอก JSON และห้ามใช้ markdown code fence',
     'รูปแบบ JSON ที่ต้องตอบ:',
-    '{"isOrder":boolean,"name":string,"phone":string,"items":[{"id":string,"qty":number}],"fulfillment":"pickup"|"delivery","address":string,"date":string|null,"note":string,"confidence":number,"missingFields":string[]}',
+    '{"isOrder":boolean,"name":string,"phone":string,"items":[{"id":string,"qty":number}],"fulfillment":"pickup"|"delivery","address":string,"date":string|null,"note":string,"confidence":number,"missingFields":string[],"matchedCustomer":string|null}',
     '- isOrder: false ถ้าข้อความนี้ไม่ได้พูดถึงการสั่งซื้อเค้กเลย (เช่น ทักทาย คุยเรื่องอื่น) — ฟิลด์อื่นใส่ค่าว่าง/0 ได้',
     '- items[].id: ต้องเลือกจาก id ในเมนูด้านล่างเท่านั้น ห้ามสร้าง id ขึ้นเอง ถ้าจับคู่สินค้าที่พิมพ์มากับเมนูไม่ได้เลย ให้ใส่ข้อความที่แอดมินพิมพ์มาแทนที่ id ตรงๆ (โค้ดฝั่งเราจะตรวจจับว่าไม่ตรงกับเมนูเอง)',
     '- ห้ามคำนวณราคา/total เอง (ไม่มีฟิลด์ total หรือ price ในผลลัพธ์) — ฝั่งโค้ดจะคำนวณจากราคาจริงในเมนูเอง',
     '- fulfillment: "delivery" ถ้าขอให้จัดส่ง มีที่อยู่ ไม่งั้นถือเป็น "pickup" (รับที่ร้าน)',
     '- date: แปลงเป็น YYYY-MM-DD ถ้าระบุมา (เช่น "พรุ่งนี้" ให้คำนวณจากวันที่ปัจจุบันที่ให้ไว้) ไม่งั้นใส่ null',
-    '- confidence (0-1): มั่นใจแค่ไหนว่า parse ถูกต้องครบถ้วน ถ้าชื่อสินค้า/จำนวนกำกวม ให้ confidence ต่ำ',
+    '- confidence (0-1): มั่นใจแค่ไหนว่า parse ถูกต้องครบถ้วนและจับคู่ลูกค้าถูกคน ถ้าชื่อ/เบอร์กำกวมหรือจับคู่ได้หลายคน ให้ confidence ต่ำ',
     '- missingFields: รายชื่อฟิลด์ที่จำเป็น (name, phone, items) ที่ยังขาดหรือไม่ชัดเจน',
+    '- ถ้าชื่อที่พิมพ์มาตรง/ใกล้เคียงกับลูกค้าในประวัติด้านล่าง ให้เติม phone/address ให้อัตโนมัติจากประวัติคนนั้น (เว้นแต่ข้อความจะระบุเบอร์/ที่อยู่ใหม่มาเอง ให้ใช้ค่าใหม่แทน) แล้วใส่ชื่อลูกค้าตามประวัติเป๊ะๆ ใน matchedCustomer ถ้าไม่ได้จับคู่กับใครเลยให้ matchedCustomer เป็น null',
     `วันที่ปัจจุบัน (เวลาไทย): ${new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })}`,
     'เมนูสินค้า (id: ชื่อ (ราคา)):',
     catalogText,
   ].join('\n');
+
+  const userContent = JSON.stringify({
+    message: text,
+    customerHistory: knownCustomers,
+  });
 
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
     method: 'POST',
@@ -561,7 +636,7 @@ async function parseOrderFromMessage(text, env) {
     },
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text }] }],
+      contents: [{ role: 'user', parts: [{ text: userContent }] }],
       // บังคับให้ตอบเป็น JSON ล้วนๆ ที่ฝั่ง API เลย กันปัญหาโมเดลพันด้วย markdown fence หรือพูดนำ/พูดต่อท้าย
       generationConfig: { responseMimeType: 'application/json' },
     }),
@@ -590,6 +665,7 @@ async function parseOrderFromMessage(text, env) {
     note: parsed.note || '',
     confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
     missingFields: Array.isArray(parsed.missingFields) ? parsed.missingFields : [],
+    matchedCustomer: parsed.matchedCustomer || null,
   };
 }
 
@@ -646,6 +722,7 @@ function buildOrderSummaryText(order, parsed) {
     order.fulfillment === 'delivery' && order.address ? `📍 ที่อยู่: ${order.address}` : null,
     order.date ? `📅 วันที่ต้องการ: ${order.date}` : null,
     order.note ? `📝 หมายเหตุ: ${order.note}` : null,
+    parsed.matchedCustomer ? `✅ จับคู่กับลูกค้าเดิม: ${parsed.matchedCustomer}` : null,
     parsed.missingFields && parsed.missingFields.length ? `⚠️ ข้อมูลที่ยังขาด: ${parsed.missingFields.join(', ')}` : null,
   ].filter(Boolean).join('\n');
 }
