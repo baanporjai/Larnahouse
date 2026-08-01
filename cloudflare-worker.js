@@ -181,35 +181,39 @@ async function handleOrder(request, env) {
     }
   }
 
-  // ตัดสต็อกสินค้าตามรายการที่สั่ง — ไม่ทำให้ order ล้มเหลวถ้าตัดสต็อกไม่สำเร็จ
-  // (เช่น item ไม่มี id เพราะสั่งก่อนอัปเดตเว็บ หรือ Apps Script ล่มชั่วคราว)
-  if (env.INVENTORY_API_URL && env.INVENTORY_ADMIN_KEY) {
-    await Promise.all(
-      order.items.map(async (it) => {
-        if (!it.id) return;
-        const qty = Number(it.qty) || 0;
-        if (qty <= 0) return;
-        try {
-          await fetch(env.INVENTORY_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-              key: env.INVENTORY_ADMIN_KEY,
-              action: 'adjustStock',
-              id: it.id,
-              delta: -qty,
-              note: `ออเดอร์เว็บไซต์ — ${order.name || ''}`.trim(),
-            }),
-            redirect: 'follow',
-          });
-        } catch (e) {
-          console.log('Stock deduct failed (non-fatal):', it.id, e);
-        }
-      })
-    );
-  }
+  await deductStock(env, order, 'ออเดอร์เว็บไซต์');
 
   return json({ ok: true }, 200, CORS_HEADERS);
+}
+
+// ตัดสต็อกสินค้าตามรายการที่สั่ง — ไม่ทำให้ order ล้มเหลวถ้าตัดสต็อกไม่สำเร็จ (เช่น item ไม่มี id
+// เพราะสั่งก่อนอัปเดตเว็บ หรือ Apps Script ล่มชั่วคราว) ใช้ร่วมกันทั้ง order.html (handleOrder) และ
+// LINE bot (handleIncomingText) — sourceLabel ใส่ต่างกันแค่บอกว่าออเดอร์มาจากช่องทางไหนใน log ของ stock.html
+async function deductStock(env, order, sourceLabel) {
+  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return;
+  await Promise.all(
+    order.items.map(async (it) => {
+      if (!it.id) return;
+      const qty = Number(it.qty) || 0;
+      if (qty <= 0) return;
+      try {
+        await fetch(env.INVENTORY_API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            key: env.INVENTORY_ADMIN_KEY,
+            action: 'adjustStock',
+            id: it.id,
+            delta: -qty,
+            note: `${sourceLabel} — ${order.name || ''}`.trim(),
+          }),
+          redirect: 'follow',
+        });
+      } catch (e) {
+        console.log('Stock deduct failed (non-fatal):', it.id, e);
+      }
+    })
+  );
 }
 
 async function handleAdminLogin(request, env) {
@@ -518,6 +522,8 @@ async function handleIncomingText(event, env) {
     await replyToLine(env, replyToken, [{ type: 'text', text: '⚠️ บันทึกออเดอร์ไม่สำเร็จ รบกวนกรอกในแดชบอร์ดเองหรือลองพิมพ์ใหม่อีกครั้งครับ' }]);
     return;
   }
+
+  await deductStock(env, order, 'ออเดอร์จาก LINE bot');
 
   await replyToLine(env, replyToken, [
     { type: 'text', text: buildOrderSummaryText(order, parsed) },
