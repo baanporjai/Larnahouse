@@ -549,11 +549,15 @@ async function getCustomerHistory(env) {
   const data = await res.json();
   const orders = Array.isArray(data.orders) ? data.orders : [];
 
+  // Google Sheets คืนค่าเซลล์ที่หน้าตาเป็นตัวเลขล้วน (เบอร์โทร/ชื่อที่เป็นตัวเลข) เป็น JS number
+  // ไม่ใช่ string เสมอไป — ถ้าไม่แปลงให้เป็น string ตรงนี้ก่อน โค้ดข้างล่าง (เช่น prefilterCustomers
+  // ที่เรียก .slice()/.split() บนค่าพวกนี้) จะพังด้วย TypeError ทันทีที่เจอลูกค้าที่มีเบอร์แบบนี้
   const map = new Map();
   orders.forEach(o => {
-    if (!o.name) return;
-    if (!map.has(o.name)) map.set(o.name, []);
-    map.get(o.name).push(o);
+    const name = String(o.name || '').trim();
+    if (!name) return;
+    if (!map.has(name)) map.set(name, []);
+    map.get(name).push({ ...o, name, phone: String(o.phone || ''), address: String(o.address || '') });
   });
 
   return Array.from(map.values()).map(list => {
@@ -563,8 +567,8 @@ async function getCustomerHistory(env) {
     const latest = list[0];
     return {
       name: latest.name,
-      phone: latest.phone || '',
-      address: latest.address || '',
+      phone: latest.phone,
+      address: latest.address,
       orderCount: list.length,
     };
   });
@@ -578,18 +582,24 @@ function prefilterCustomers(text, customers, limit = 8) {
   const digitRuns = text.match(/\d{4,}/g) || [];
   const scored = customers.map(c => {
     let score = 0;
-    const nameLower = (c.name || '').toLowerCase();
+    // เผื่อ c.name/c.phone/c.address ไม่ใช่ string จริงๆ (เช่น Google Sheets คืนเซลล์ตัวเลขล้วนเป็น
+    // JS number) — แปลงเป็น string ตรงนี้ซ้ำอีกชั้น กัน .slice()/.split() พังแม้ getCustomerHistory
+    // จะแปลงไว้ให้แล้วก็ตาม (defense in depth เผื่อมีจุดอื่นเรียก prefilterCustomers ตรงๆ ในอนาคต)
+    const name = String(c.name || '');
+    const phone = String(c.phone || '');
+    const address = String(c.address || '');
+    const nameLower = name.toLowerCase();
     if (nameLower && lower.includes(nameLower)) score += 3;
     else if (nameLower) {
       const parts = nameLower.split(/\s+/).filter(p => p.length >= 2);
       if (parts.some(p => lower.includes(p))) score += 2;
     }
-    if (c.phone) {
-      const tail = c.phone.slice(-4);
+    if (phone) {
+      const tail = phone.slice(-4);
       if (digitRuns.some(run => run.includes(tail))) score += 3;
     }
-    if (c.address) {
-      const addrWords = c.address.split(/\s+/).filter(w => w.length >= 3);
+    if (address) {
+      const addrWords = address.split(/\s+/).filter(w => w.length >= 3);
       if (addrWords.some(w => lower.includes(w.toLowerCase()))) score += 1;
     }
     return { c, score };
