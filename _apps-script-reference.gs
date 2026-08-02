@@ -90,6 +90,17 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    // ปฏิเสธ request ที่ไม่ได้หน้าตาเหมือนออเดอร์จริงๆ ก่อนสร้างแถวใหม่ — กันเหตุการณ์ที่ request
+    // ซึ่งตั้งใจส่งไป Apps Script ตัวอื่น (เช่น adjustStock ของชีต Stock) ดันมาจิ้มโดนชีต Orders ผิดตัว
+    // (เช่น INVENTORY_API_URL ตั้งค่าผิดเป็น URL เดียวกับ SHEETS_URL) แล้วโดน fallback ไปสร้างเป็น
+    // "ออเดอร์ใหม่" เงียบๆ ด้วยฟิลด์เพี้ยนๆ (ก่อนหน้านี้เคยเกิดจริง — เห็นแถวขยะที่มี id เป็นรหัสสินค้า
+    // แทนที่จะเป็น UUID เพราะ payload ของ adjustStock ไม่มี name/phone/items เลยสักฟิลด์)
+    if (data.action && data.action !== "new_order") {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: "Unknown action: " + data.action }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     // New order — data.id ใช้ตอนมาจาก LINE bot เท่านั้น (ต้องรู้ id ทันทีสำหรับปุ่มยกเลิก)
     // order.html ปกติไม่ส่ง id มาเลย เลย generate ให้เองเหมือนเดิม (backward compatible)
     const items = (data.items || []).map(i => `${i.name} x${i.qty}`).join(", ");
