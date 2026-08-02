@@ -200,25 +200,39 @@ async function restoreStock(env, items, sourceLabel) {
 
 // แกนกลางของทั้ง deductStock/restoreStock — sign: -1 = ตัด, +1 = คืน
 async function adjustStockForItems(env, items, sign, note) {
-  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return;
+  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) {
+    console.log('adjustStockForItems skipped: INVENTORY_API_URL/INVENTORY_ADMIN_KEY not configured');
+    return;
+  }
   await Promise.all(
     (items || []).map(async (it) => {
       if (!it.id) return;
       const qty = Number(it.qty) || 0;
       if (qty <= 0) return;
+      const delta = sign * qty;
       try {
-        await fetch(env.INVENTORY_API_URL, {
+        const res = await fetch(env.INVENTORY_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({
             key: env.INVENTORY_ADMIN_KEY,
             action: 'adjustStock',
             id: it.id,
-            delta: sign * qty,
+            delta,
             note,
           }),
           redirect: 'follow',
         });
+        // Apps Script ตอบ error กลับมาเป็น HTTP 200 เสมอ (เช่น {error:'unauthorized'} ถ้า
+        // INVENTORY_ADMIN_KEY ไม่ตรงกับ ADMIN_KEY ใน Script Properties, หรือ {error:'product not found'}
+        // ถ้า id ไม่ตรงกับคอลัมน์ id ในชีต Stock เลย) — ต้องอ่าน body มาเช็คเอง ไม่งั้น fetch จะดู "สำเร็จ"
+        // ตลอดแม้ Apps Script จะไม่ได้แก้อะไรในชีตจริงๆ เลยก็ตาม
+        const text = await res.text();
+        let result;
+        try { result = JSON.parse(text); } catch { result = null; }
+        if (!result || result.error) {
+          console.log('Stock adjust rejected by Apps Script:', it.id, 'delta=' + delta, result ? result.error : text.slice(0, 200));
+        }
       } catch (e) {
         console.log('Stock adjust failed (non-fatal):', it.id, e);
       }
