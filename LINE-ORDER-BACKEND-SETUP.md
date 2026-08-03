@@ -73,10 +73,25 @@ This uses the **same LINE channel** as the order-notification push above (`@baan
 4. **Set the admin group ID(s)**: open `cloudflare-worker.js`, find the `ADMIN_GROUP_IDS` array near the top, and add the group ID(s) of the LINE group chat(s) where admins should be able to type orders. (Not a secret — same convention as O'Fresh's `ADMIN_GROUP_ID`.) Redeploy (copy-paste into the Cloudflare dashboard editor) after editing.
    - To find a group's ID: add the bot to the group, send any message, then check the Worker's real-time logs (Workers & Pages → `larnaapi` → Logs → Begin log stream) — or temporarily log `event.source.groupId` in `handleLineWebhook`.
 5. In LINE Developers Console → your channel → **Messaging API** tab, turn on **Use webhook** and set the Webhook URL to `https://larnaapi.<your-subdomain>.workers.dev/api/line/webhook`.
-6. Paste the updated `_apps-script-reference.gs` (the `data.id || Utilities.getUuid()` change) into the Orders sheet's actual Apps Script editor (Extensions → Apps Script) and redeploy that Web App if prompted.
+6. Paste the current `_apps-script-reference.gs` into the Orders sheet's actual Apps Script editor (Extensions → Apps Script) and redeploy that Web App (**Manage deployments → edit the existing deployment → New version**, not "New deployment" — that keeps the same `/exec` URL so `SHEETS_URL` doesn't need to change).
 
 ### Notes
 
 - The product catalog the bot matches against (`PRODUCT_CATALOG` in `cloudflare-worker.js`) is a hand-copied, condensed version of `js/products.js` (id/name/price only). **If products or prices change, update this list too** — it isn't synced automatically.
 - The bot only replies inside the admin group; it doesn't touch customer-facing chats or the website order flow (`/api/order`) at all.
 - If Gemini can't match a product name to the menu, that item is dropped from the order and flagged in the note instead of guessing a price.
+
+## 6. Stock/Log — merged into the same Apps Script project as Orders
+
+The "Stock" and "Log" tabs live in the same spreadsheet as "Orders", and as of this change their backend logic (previously a separate Apps Script project, `google-apps-script/Code.gs`) has been merged into `_apps-script-reference.gs` — one Apps Script project, one deployment, routed by an `action` parameter. This removes the failure mode where `INVENTORY_API_URL` (stock) and `SHEETS_URL` (orders) could point at two different deployments and get mixed up.
+
+`google-apps-script/Code.gs` is now superseded and has been removed — its logic lives in `_apps-script-reference.gs`'s Stock/Log section.
+
+### One-time migration steps
+
+1. Open the Orders spreadsheet's Apps Script project (Extensions → Apps Script) and replace its entire contents with the current `_apps-script-reference.gs`.
+2. **Project Settings → Script Properties** → add `ADMIN_KEY` = the same value already used as Cloudflare's `INVENTORY_ADMIN_KEY` secret (so that secret doesn't need to change).
+3. Redeploy: **Manage deployments → edit the existing deployment → New version → Deploy**. This keeps the existing `/exec` URL (same one `SHEETS_URL` already points to).
+4. Update Cloudflare secrets on the `larnaapi` Worker so `INVENTORY_API_URL` now equals `SHEETS_URL` (same value, both point at the one merged deployment): `wrangler secret put INVENTORY_API_URL --name larnaapi`.
+5. Update `js/inventory-config.js`'s `INVENTORY_API_URL` constant (used client-side by `stock.html`/`product.html`/`index.html` to read public stock levels) to that same URL.
+6. Smoke test: `?action=stock` on the URL should return `{products:[...]}`, a bot-created order should now actually decrement stock, and cancelling one should restore it.
