@@ -12,16 +12,15 @@
  *                                LINE Messaging API channel
  *   LINE_TARGET_ID             — userId or groupId that should receive
  *                                the order notification
- *   SHEETS_URL                 — Apps Script Web App URL (orders sheet)
+ *   SHEETS_URL                 — Apps Script Web App URL, see _apps-script-reference.gs.
+ *                                One Apps Script project serves Orders, Stock, Log,
+ *                                and Expenses (accounting.html) tabs, routed by an
+ *                                `action` parameter — SHEETS_URL and INVENTORY_API_URL
+ *                                should both be set to this same URL.
  *   ADMIN_PIN                  — PIN for dashboard.html
  *   SESSION_SECRET             — long random string, signs admin session tokens
- *   EXPENSES_SHEET_URL         — Apps Script Web App URL for the "Expenses" tab
- *                                (accounting.html — cost/expense tracking, separate
- *                                standalone Apps Script project, see
- *                                _expense-apps-script-reference.gs)
- *   INVENTORY_API_URL          — Apps Script Web App URL for the Stock sheet
- *                                (see google-apps-script/Code.gs) — used both to
- *                                deduct stock when a website order comes in, and
+ *   INVENTORY_API_URL          — same Apps Script Web App URL as SHEETS_URL — used
+ *                                both to deduct stock when an order comes in, and
  *                                to proxy stock.html's log/edit calls (below) so
  *                                the ADMIN_KEY never ships in client-side code
  *   INVENTORY_ADMIN_KEY        — ADMIN_KEY Script Property set on that same
@@ -303,14 +302,18 @@ async function handleAdminUpdateStatus(request, env) {
   }
 }
 
-// อ่านรายการต้นทุน/ค่าใช้จ่าย (หน้า accounting.html) — proxy JSON ตรงๆ แบบเดียวกับ handleAdminOrders
+// อ่านรายการต้นทุน/ค่าใช้จ่าย (หน้า accounting.html) — proxy JSON จาก Orders/Stock/Expenses
+// Apps Script ตัวเดียวกัน (SHEETS_URL) ด้วย action=expenses, แบบเดียวกับที่ stock.html ใช้
+// action=stock — เดิมมี EXPENSES_SHEET_URL แยกเป็นอีก secret ชี้ไป Apps Script อีกโปรเจกต์
+// ที่ไม่เคยตั้งค่าเลย ทำให้บันทึกรายจ่ายไม่ได้เลยตั้งแต่สร้างหน้านี้ขึ้นมา — รวมเข้ากับ
+// SHEETS_URL ตัวเดียวกันแทน ตัดโอกาสลืมตั้ง secret แยกแบบนี้อีก
 async function handleAdminExpenses(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.EXPENSES_SHEET_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    const res = await fetch(env.EXPENSES_SHEET_URL);
+    const res = await fetch(env.SHEETS_URL + '?action=expenses');
     const text = await res.text();
     return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   } catch (err) {
@@ -320,12 +323,12 @@ async function handleAdminExpenses(request, env) {
 }
 
 // เขียนรายการต้นทุน/ค่าใช้จ่าย (เพิ่ม/แก้ไข/ลบ) — ต้องผ่าน PIN token เพราะเป็นข้อมูลการเงินที่กระทบยอดกำไร
-// ต่างจาก update-status ที่ยิงตรงจาก dashboard.html โดยไม่ auth (เหมาะกับสถานะออเดอร์ซึ่งความเสี่ยงต่ำ) —
-// ที่นี่ให้ Worker เป็นตัวกลางยืนยัน token ก่อนเสมอ แล้วค่อย forward ไป Apps Script แทน
+// ต่างจาก update-status ที่ความเสี่ยงต่ำกว่า (แค่สถานะออเดอร์) — ที่นี่ให้ Worker เป็นตัวกลาง
+// ยืนยัน token ก่อนเสมอ แล้วค่อย forward ไป Apps Script แทน
 async function handleAdminExpenseWrite(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.EXPENSES_SHEET_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   let data;
   try {
@@ -347,11 +350,13 @@ async function handleAdminExpenseWrite(request, env) {
     return json({ success: false, error: 'Missing id' }, 400, CORS_HEADERS);
   }
 
+  const sheetsAction = { add: 'expense_add', update: 'expense_update', delete: 'expense_delete' }[action];
+
   try {
-    const res = await fetch(env.EXPENSES_SHEET_URL, {
+    const res = await fetch(env.SHEETS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ ...data, action }),
+      body: JSON.stringify({ ...data, action: sheetsAction }),
       redirect: 'follow',
     });
     const result = await res.json().catch(() => ({ success: res.ok }));

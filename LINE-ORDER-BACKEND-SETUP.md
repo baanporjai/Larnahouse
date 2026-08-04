@@ -81,17 +81,18 @@ This uses the **same LINE channel** as the order-notification push above (`@baan
 - The bot only replies inside the admin group; it doesn't touch customer-facing chats or the website order flow (`/api/order`) at all.
 - If Gemini can't match a product name to the menu, that item is dropped from the order and flagged in the note instead of guessing a price.
 
-## 6. Stock/Log — merged into the same Apps Script project as Orders
+## 6. Stock/Log/Expenses — merged into the same Apps Script project as Orders
 
-The "Stock" and "Log" tabs live in the same spreadsheet as "Orders", and as of this change their backend logic (previously a separate Apps Script project, `google-apps-script/Code.gs`) has been merged into `_apps-script-reference.gs` — one Apps Script project, one deployment, routed by an `action` parameter. This removes the failure mode where `INVENTORY_API_URL` (stock) and `SHEETS_URL` (orders) could point at two different deployments and get mixed up.
+The "Stock", "Log", and "Expenses" tabs all live in the same spreadsheet as "Orders", and their backend logic (previously two separate Apps Script projects — `google-apps-script/Code.gs` for Stock/Log, `_expense-apps-script-reference.gs` for Expenses) has been merged into `_apps-script-reference.gs` — one Apps Script project, one deployment, routed by an `action` parameter. This removes the failure mode where a URL secret (`INVENTORY_API_URL`, `EXPENSES_SHEET_URL`) pointed at a different deployment than `SHEETS_URL` and got mixed up or, in the Expenses case, never got set at all — which is exactly what caused every save on `accounting.html` to fail with "Not configured" until this merge.
 
-`google-apps-script/Code.gs` is now superseded and has been removed — its logic lives in `_apps-script-reference.gs`'s Stock/Log section.
+`google-apps-script/Code.gs` and `_expense-apps-script-reference.gs` are now superseded and have been removed — their logic lives in `_apps-script-reference.gs`'s Stock/Log and Expenses sections.
 
 ### One-time migration steps
 
 1. Open the Orders spreadsheet's Apps Script project (Extensions → Apps Script) and replace its entire contents with the current `_apps-script-reference.gs`.
 2. **Project Settings → Script Properties** → add `ADMIN_KEY` = the same value already used as Cloudflare's `INVENTORY_ADMIN_KEY` secret (so that secret doesn't need to change).
-3. Redeploy: **Manage deployments → edit the existing deployment → New version → Deploy**. This keeps the existing `/exec` URL (same one `SHEETS_URL` already points to).
-4. Update Cloudflare secrets on the `larnaapi` Worker so `INVENTORY_API_URL` now equals `SHEETS_URL` (same value, both point at the one merged deployment): `wrangler secret put INVENTORY_API_URL --name larnaapi`.
-5. Update `js/inventory-config.js`'s `INVENTORY_API_URL` constant (used client-side by `stock.html`/`product.html`/`index.html` to read public stock levels) to that same URL.
-6. Smoke test: `?action=stock` on the URL should return `{products:[...]}`, a bot-created order should now actually decrement stock, and cancelling one should restore it.
+3. Make sure the spreadsheet has an **"Expenses"** tab with header row `timestamp | id | type | category | description | amount | date | note` (create it if it doesn't exist yet).
+4. Redeploy: **Manage deployments → edit the existing deployment → New version → Deploy**. This keeps the existing `/exec` URL (same one `SHEETS_URL` already points to).
+5. Update Cloudflare secrets on the `larnaapi` Worker: `INVENTORY_API_URL` should equal `SHEETS_URL` (`wrangler secret put INVENTORY_API_URL --name larnaapi`); the old `EXPENSES_SHEET_URL` secret is no longer used and can be deleted.
+6. Update `js/inventory-config.js`'s `INVENTORY_API_URL` constant (used client-side by `stock.html`/`product.html`/`index.html` to read public stock levels) to that same URL.
+7. Smoke test: `?action=stock` should return `{products:[...]}`, `?action=expenses` should return `{expenses:[...]}` (Worker-proxied, needs a PIN session to reach from the browser), a bot-created order should decrement stock, cancelling one should restore it, and saving an expense on `accounting.html` should actually succeed.

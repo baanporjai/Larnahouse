@@ -2,23 +2,27 @@
 // from here. This file exists only so the code is versioned somewhere; paste
 // it into the Sheet's actual Extensions > Apps Script editor to deploy it.
 //
-// รวม 3 แท็บของสเปรดชีตเดียวกัน (Orders, Stock, Log) เข้าเป็น Apps Script โปรเจกต์
-// เดียว deploy เป็น Web App เดียว — เดิมแยกเป็น 2 โปรเจกต์คนละไฟล์ (Orders กับ Stock)
-// ทำให้ INVENTORY_API_URL ของ Cloudflare Worker ตั้งผิดเป็น URL เดียวกับ SHEETS_URL
-// ได้ง่าย (คนละ Apps Script แต่ดูคล้ายกัน) พอรวมเป็นตัวเดียวแล้ว SHEETS_URL กับ
-// INVENTORY_API_URL จะเป็นค่าเดียวกันได้เลยตรงๆ ไม่มีทางตั้งผิดแบบนั้นอีก — แยกแยะ
-// การทำงานด้วย action ที่ส่งมาแทน (update_status/new_order → Orders, adjustStock/
-// setStock → Stock, stock/log/stockAdmin → อ่านข้อมูล Stock/Log)
+// รวม 4 แท็บของสเปรดชีตเดียวกัน (Orders, Stock, Log, Expenses) เข้าเป็น Apps Script
+// โปรเจกต์เดียว deploy เป็น Web App เดียว — เดิมแยกเป็นหลายโปรเจกต์คนละไฟล์ (Orders,
+// Stock, Expenses) ทำให้ตั้ง URL secret ผิดตัวกันได้ง่าย (คนละ Apps Script แต่ดูคล้ายกัน
+// — Cloudflare's EXPENSES_SHEET_URL เคยลืมตั้งไปเลยจนกดบันทึกรายจ่ายไม่ได้เลย) พอรวมเป็น
+// ตัวเดียวแล้ว SHEETS_URL / INVENTORY_API_URL ใช้ค่าเดียวกันได้ตรงๆ ไม่ต้องมี
+// EXPENSES_SHEET_URL แยกอีกต่อไป — แยกแยะการทำงานด้วย action ที่ส่งมาแทน
+// (update_status/new_order → Orders, adjustStock/setStock → Stock,
+// stock/log/stockAdmin → อ่านข้อมูล Stock/Log, expense_add/expense_update/
+// expense_delete → เขียน Expenses, expenses → อ่าน Expenses)
 //
 // ต้องตั้ง Project Settings > Script Properties > ADMIN_KEY ด้วย (ค่าเดียวกับ
 // INVENTORY_ADMIN_KEY ใน Cloudflare Worker) — ใช้ป้องกัน action adjustStock/setStock/
-// log/stockAdmin เท่านั้น (update_status/new_order ไม่ต้องมี key เหมือนเดิม เพราะ
-// เดิมออกแบบไว้ให้ dashboard.html ยิงตรงได้โดยไม่ auth เนื่องจากความเสี่ยงต่ำ)
+// log/stockAdmin เท่านั้น (update_status/new_order/expense_* ไม่ต้องมี key เหมือนเดิม
+// เพราะ Worker เป็นคนเช็ค auth ให้ก่อนแล้วในชั้นนั้น — dashboard.html/accounting.html
+// ไม่ได้ยิงตรงมาที่นี่โดยไม่ผ่าน Worker)
 
 const SHEET_ID = "1xisQcDei86iD0a4E6_gtw41zaf1OQXMLjzlO3YREVtU";
 const SHEET_NAME_ORDERS = "Orders";
 const SHEET_NAME_STOCK = "Stock";
 const SHEET_NAME_LOG = "Log";
+const SHEET_NAME_EXPENSES = "Expenses";
 
 function getSpreadsheet_() {
   // เปิดสเปรดชีตด้วย ID ตรงๆ แทน getActiveSpreadsheet() เพราะ getActiveSpreadsheet()
@@ -30,6 +34,7 @@ function getSpreadsheet_() {
 function getOrdersSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_ORDERS); }
 function getStockSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_STOCK); }
 function getLogSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_LOG); }
+function getExpensesSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_EXPENSES); }
 
 function getAdminKey_() {
   return PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
@@ -53,6 +58,14 @@ function formatThaiTimestamp(date) {
   return `${d}/${m}/${y} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// แปลง Date object เป็น "YYYY-MM-DD" ด้วย local date getters (ไม่ใช้ toISOString()
+// เพราะจะเลื่อนวันผิดได้ถ้า timezone ของสคริปต์ไม่ใช่ UTC) — ใช้กับคอลัมน์ "date" ของ
+// Expenses ซึ่ง Sheets อาจ auto-parse เป็น Date object เองถ้าค่าที่เขียนลงไปหน้าตาเหมือนวันที่
+function formatISODate_(date) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 // ── ROUTING ──────────────────────────────────────────────────────────────
 
 function doGet(e) {
@@ -68,6 +81,11 @@ function doGet(e) {
   if (action === 'stockAdmin') {
     if (!e.parameter.key || e.parameter.key !== getAdminKey_()) return jsonOutput_({ error: 'unauthorized' });
     return jsonOutput_(getStockData_(true));
+  }
+  if (action === 'expenses') {
+    // ไม่เช็ค key ตรงนี้ — เหมือน action อื่นๆ ที่ Worker เป็นคนกรอง auth (PIN token)
+    // ให้แล้วก่อนยิงมาถึงนี่ (ดู handleAdminExpenses ใน cloudflare-worker.js)
+    return jsonOutput_(getExpensesData_());
   }
 
   // ไม่มี action หรือ action ไม่รู้จัก — พฤติกรรมเดิม: คืนรายการออเดอร์ทั้งหมด
@@ -90,6 +108,14 @@ function doPost(e) {
 
     if (data.action === "update_status") {
       return jsonOutput_(updateOrderStatus_(data));
+    }
+
+    if (data.action === "expense_add" || data.action === "expense_update" || data.action === "expense_delete") {
+      // ไม่เช็ค key ตรงนี้เหมือนกัน — Worker เช็ค PIN token ก่อนแล้ว (ดู
+      // handleAdminExpenseWrite) เป็นระดับความเสี่ยงเดียวกับ update_status
+      if (data.action === "expense_delete") return jsonOutput_(deleteExpense_(data));
+      if (data.action === "expense_update") return jsonOutput_(updateExpense_(data));
+      return jsonOutput_(addExpense_(data));
     }
 
     // ปฏิเสธ request ที่ไม่ได้หน้าตาเหมือนออเดอร์จริงๆ ก่อนสร้างแถวใหม่ — กันเหตุการณ์ที่ request
@@ -327,6 +353,89 @@ function getLogData_() {
   }
   result.reverse();
   return { log: result };
+}
+
+// ── EXPENSES ─────────────────────────────────────────────────────────────
+// ใช้โดย accounting.html (ผ่าน Worker's /api/admin/expenses proxy) — type เป็น
+// "cogs" (ต้นทุนขาย) หรือ "opex" (ค่าใช้จ่ายดำเนินงาน), id generate ฝั่ง client
+// (accounting.html's generateId()) ส่งมาเสมอ เพื่อให้แก้ไข/ลบได้ทันทีในเซสชันเดียวกัน
+// โดยไม่ต้องรอ round-trip กลับมาก่อน
+
+function getExpensesData_() {
+  const sheet = getExpensesSheet_();
+  const rows = sheet.getDataRange().getValues();
+  const headers = rows[0].map(h => h.toString().trim().toLowerCase());
+  const expenses = rows.slice(1).map(r => {
+    const e = {};
+    headers.forEach((h, j) => e[h] = r[j]);
+    if (e.timestamp instanceof Date) e.timestamp = formatThaiTimestamp(e.timestamp);
+    if (e.date instanceof Date) e.date = formatISODate_(e.date);
+    return e;
+  });
+  return { expenses };
+}
+
+function addExpense_(data) {
+  const sheet = getExpensesSheet_();
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => h.toString().trim().toLowerCase());
+  const values = {
+    timestamp: new Date(),
+    id: data.id || Utilities.getUuid(),
+    type: data.type || "opex",
+    category: data.category || "",
+    description: data.description || "",
+    amount: data.amount || 0,
+    date: data.date || "",
+    note: data.note || "",
+  };
+  const row = headers.map(h => (h in values) ? values[h] : "");
+  sheet.appendRow(row);
+  return { success: true, id: values.id };
+}
+
+function updateExpense_(data) {
+  const sheet = getExpensesSheet_();
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => h.toString().trim().toLowerCase());
+  const idCol = headers.indexOf("id") + 1;
+  if (!idCol) return { success: false, error: "id column not found" };
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, error: "No data rows" };
+
+  const editable = ["type", "category", "description", "amount", "date", "note"];
+  const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(data.id)) {
+      editable.forEach(field => {
+        const col = headers.indexOf(field) + 1;
+        if (col && (field in data)) sheet.getRange(i + 2, col).setValue(data[field]);
+      });
+      return { success: true };
+    }
+  }
+  return { success: false, error: "Expense id not found" };
+}
+
+function deleteExpense_(data) {
+  const sheet = getExpensesSheet_();
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => h.toString().trim().toLowerCase());
+  const idCol = headers.indexOf("id") + 1;
+  if (!idCol) return { success: false, error: "id column not found" };
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, error: "No data rows" };
+
+  const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(data.id)) {
+      sheet.deleteRow(i + 2);
+      return { success: true };
+    }
+  }
+  return { success: false, error: "Expense id not found" };
 }
 
 // ── ONE-TIME HELPER ──────────────────────────────────────────────────────
