@@ -623,7 +623,7 @@ async function postExpense(payload) {
       return { success: false };
     }
     const data = await res.json();
-    if (!data.success) alert("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    if (!data.success) alert("บันทึกไม่สำเร็จ: " + (data.error || "ไม่ทราบสาเหตุ"));
     return data;
   } catch (e) {
     alert("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง");
