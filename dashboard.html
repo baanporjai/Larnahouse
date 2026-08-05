@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Frozen Larna Cake</title>
 <link rel="icon" href="/favicon.gif" type="image/gif">
+<link rel="manifest" href="/admin-manifest.json">
+<meta name="theme-color" content="#1C0F08">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/admin-sw.js'));
+  }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,600&display=swap" rel="stylesheet">
@@ -711,8 +718,10 @@ function openEditOrderModal(row, id) {
   document.getElementById("editOrderName").value = o.name || "";
   document.getElementById("editOrderPhone").value = o.phone || "";
   document.getElementById("editOrderAddress").value = (o.address && o.address !== "-") ? o.address : "";
-  const d = getDeliveryDateOnly(o);
-  document.getElementById("editOrderDate").value = d ? toLocalISODate(d) : "";
+  // getDeliveryDateOnly() คืนค่าเป็นสตริง "YYYY-MM-DD" อยู่แล้ว (ไม่ใช่ Date object) ซึ่งเป็นรูปแบบ
+  // ที่ <input type="date"> ต้องการพอดี — ห้ามส่งต่อเข้า toLocalISODate() ซ้ำอีก เพราะมันเรียก
+  // d.getFullYear() ทำให้ throw TypeError ตั้งแต่ตรงนี้ โมดัลเลยไม่ทันถูกเปิด (กดปุ่มแล้วเงียบ)
+  document.getElementById("editOrderDate").value = getDeliveryDateOnly(o) || "";
   document.getElementById("editOrderItems").value = o.items || "";
   document.getElementById("editOrderTotal").value = parseTotal(o.total);
   document.getElementById("editOrderNote").value = (o.note && o.note !== "-") ? o.note : "";
