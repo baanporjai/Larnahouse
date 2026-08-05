@@ -658,7 +658,7 @@ function orderRowHTML(o, opts) {
         <div class="order-items">🛍 ${o.items || "-"}</div>
         ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
         <select class="status-select status-${status}" data-current="${status}" onchange="updateStatus(this,'${row}','${id}')">${statusOptionsHTML(status)}</select>
-        <button class="order-edit-btn" onclick="openEditOrderModal('${id}')"${id ? "" : " disabled"}>✏️ แก้ไข</button>
+        <button class="order-edit-btn" onclick="openEditOrderModal('${row}','${id}')">✏️ แก้ไข</button>
       </div>
       <div class="order-total">${parseTotal(o.total).toLocaleString("th-TH")} THB</div>
     </div>`;
@@ -698,15 +698,16 @@ async function updateStatus(selectEl, row, id) {
   }
 }
 
-let editingOrderId = null;
+let editingOrderRow = null, editingOrderId = null;
 
-function openEditOrderModal(id) {
-  const o = allOrders.find(x => String(x.id) === id);
+function openEditOrderModal(row, id) {
+  const o = allOrders.find(x => (id && String(x.id) === id) || (row && String(x._row) === row));
   if (!o) {
     alert("ไม่พบข้อมูลออเดอร์นี้ กรุณารีเฟรชแล้วลองใหม่");
     return;
   }
-  editingOrderId = id;
+  editingOrderRow = row || String(o._row || "");
+  editingOrderId = id || String(o.id || "");
   document.getElementById("editOrderName").value = o.name || "";
   document.getElementById("editOrderPhone").value = o.phone || "";
   document.getElementById("editOrderAddress").value = (o.address && o.address !== "-") ? o.address : "";
@@ -722,11 +723,11 @@ function openEditOrderModal(id) {
 function closeEditOrderModal(e) {
   if (e && e.target !== document.getElementById("editOrderOverlay")) return;
   document.getElementById("editOrderOverlay").classList.remove("open");
-  editingOrderId = null;
+  editingOrderRow = null; editingOrderId = null;
 }
 
 async function saveOrderEdit() {
-  if (!editingOrderId) return;
+  if (!editingOrderRow && !editingOrderId) return;
   const btn = document.getElementById("editOrderSaveBtn");
   const msgEl = document.getElementById("editOrderMsg");
   btn.disabled = true;
@@ -738,7 +739,8 @@ async function saveOrderEdit() {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        id: editingOrderId,
+        row: editingOrderRow ? Number(editingOrderRow) : undefined,
+        id: editingOrderId || undefined,
         name: document.getElementById("editOrderName").value.trim(),
         phone: document.getElementById("editOrderPhone").value.trim(),
         address: document.getElementById("editOrderAddress").value.trim() || "-",
@@ -751,7 +753,7 @@ async function saveOrderEdit() {
     const result = await res.json();
     if (!res.ok || result.ok === false) throw new Error(result.error || "save failed");
     document.getElementById("editOrderOverlay").classList.remove("open");
-    editingOrderId = null;
+    editingOrderRow = null; editingOrderId = null;
     await init();
   } catch (e) {
     console.log("Order edit failed:", e);

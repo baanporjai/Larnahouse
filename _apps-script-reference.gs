@@ -188,30 +188,35 @@ function updateOrderStatus_(data) {
   return { ok: true };
 }
 
-// แก้ไขรายละเอียดออเดอร์ (จากปุ่มแก้ไขในหน้า dashboard.html) — หาแถวด้วย id แล้วแก้เฉพาะฟิลด์
-// ที่ส่งมา เหมือน updateExpense_ ด้านล่าง (id-based, headers-mapped แทนเลขคอลัมน์ตายตัว)
+// แก้ไขรายละเอียดออเดอร์ (จากปุ่มแก้ไขในหน้า dashboard.html) — หาแถวด้วย id ก่อน (เหมือน
+// updateExpense_ ด้านล่าง) ถ้าหาไม่เจอ (แถวเก่าที่ยังไม่มี id) ค่อย fallback ไปใช้เลข row ที่
+// ส่งมาแทน เหมือน updateOrderStatus_ ด้านบน — ไม่งั้นปุ่มแก้ไขจะใช้กับแถวเก่าไม่ได้เลย
 function updateOrder_(data) {
   const sheet = getOrdersSheet_();
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
     .map(h => h.toString().trim().toLowerCase());
   const idCol = headers.indexOf("id") + 1;
-  if (!idCol) return { ok: false, error: "id column not found" };
 
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return { ok: false, error: "No data rows" };
 
   const editable = ["name", "phone", "address", "date", "items", "total", "note"];
-  const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === String(data.id)) {
-      editable.forEach(field => {
-        const col = headers.indexOf(field) + 1;
-        if (col && (field in data)) sheet.getRange(i + 2, col).setValue(data[field]);
-      });
-      return { ok: true };
-    }
+
+  let sheetRow = null;
+  if (idCol && data.id) {
+    const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+    const idx = ids.findIndex(r => String(r[0]) === String(data.id));
+    if (idx !== -1) sheetRow = idx + 2;
   }
-  return { ok: false, error: "Order not found" };
+  if (!sheetRow && data.row) sheetRow = Number(data.row);
+
+  if (!sheetRow) return { ok: false, error: "Order not found" };
+
+  editable.forEach(field => {
+    const col = headers.indexOf(field) + 1;
+    if (col && (field in data)) sheet.getRange(sheetRow, col).setValue(data[field]);
+  });
+  return { ok: true };
 }
 
 function createOrder_(data) {

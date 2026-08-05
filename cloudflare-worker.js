@@ -320,9 +320,11 @@ async function handleAdminUpdateOrder(request, env) {
   } catch {
     return json({ error: 'Invalid JSON' }, 400, CORS_HEADERS);
   }
-  if (!body.id) return json({ error: 'Missing id' }, 400, CORS_HEADERS);
+  if (!body.id && !body.row) return json({ error: 'Missing id/row' }, 400, CORS_HEADERS);
 
-  const payload = { action: 'update_order', id: body.id };
+  // row เป็น fallback สำหรับแถวเก่าที่ยังไม่มี id (เหมือน update-status) — ไม่ใช่ทุกออเดอร์เก่า
+  // จะมี id ครบ ถ้าบังคับ id อย่างเดียวปุ่มแก้ไขจะใช้ไม่ได้กับแถวพวกนั้นเลย
+  const payload = { action: 'update_order', row: body.row, id: body.id };
   ['name', 'phone', 'address', 'date', 'items', 'total', 'note'].forEach(field => {
     if (field in body) payload[field] = body[field];
   });
