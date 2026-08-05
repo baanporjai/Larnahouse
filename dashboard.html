@@ -362,6 +362,27 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .stat-card { cursor: pointer; transition: box-shadow .15s, transform .15s; }
   .stat-card:hover { box-shadow: 0 4px 20px rgba(43,24,16,0.14); transform: translateY(-2px); }
 
+  .order-edit-btn {
+    background: var(--cream-2); border: none; border-radius: 8px; padding: 5px 9px;
+    font-size: 12px; cursor: pointer; margin-top: 8px;
+  }
+  .order-edit-btn:hover { background: var(--gold); color: #fff; }
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 11px; font-weight: 700; color: var(--choco); opacity: .6; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .form-field input, .form-field textarea {
+    width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid var(--cream-2);
+    font-family: inherit; font-size: 14px; color: var(--choco-dark); outline: none; background: #fff;
+  }
+  .form-field input:focus, .form-field textarea:focus { border-color: var(--frost); }
+  .form-field textarea { resize: vertical; min-height: 50px; }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-primary {
+    flex: 1; padding: 12px; border: none; border-radius: 12px; cursor: pointer;
+    background: var(--frost); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+  }
+  .btn-primary:hover { background: var(--frost-deep); }
+  .btn-primary:disabled { opacity: .6; cursor: wait; }
+
   @media (max-width: 680px) {
     .charts { grid-template-columns: 1fr; }
     .stats { grid-template-columns: repeat(2, 1fr); }
@@ -404,6 +425,24 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     <button class="modal-close" onclick="closeModal()">✕</button>
     <h3 id="modalTitle"></h3>
     <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editOrderOverlay" onclick="closeEditOrderModal(event)">
+  <div class="modal" style="max-width:480px" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeEditOrderModal()">✕</button>
+    <h3>แก้ไขออเดอร์</h3>
+    <div class="form-field"><label>ชื่อลูกค้า</label><input type="text" id="editOrderName"></div>
+    <div class="form-field"><label>เบอร์โทร</label><input type="text" id="editOrderPhone"></div>
+    <div class="form-field"><label>ที่อยู่</label><input type="text" id="editOrderAddress"></div>
+    <div class="form-field"><label>วันที่จัดส่ง</label><input type="date" id="editOrderDate"></div>
+    <div class="form-field"><label>รายการสินค้า</label><textarea id="editOrderItems"></textarea></div>
+    <div class="form-field"><label>ยอดรวม (บาท)</label><input type="number" id="editOrderTotal"></div>
+    <div class="form-field"><label>หมายเหตุ</label><textarea id="editOrderNote"></textarea></div>
+    <div class="form-actions">
+      <button class="btn-primary" id="editOrderSaveBtn" onclick="saveOrderEdit()">บันทึก</button>
+    </div>
+    <div id="editOrderMsg" style="font-size:12px;margin-top:10px;color:var(--sorbet)"></div>
   </div>
 </div>
 
@@ -619,6 +658,7 @@ function orderRowHTML(o, opts) {
         <div class="order-items">🛍 ${o.items || "-"}</div>
         ${o.note && o.note !== "-" ? `<div class="order-note">📝 ${o.note}</div>` : ""}
         <select class="status-select status-${status}" data-current="${status}" onchange="updateStatus(this,'${row}','${id}')">${statusOptionsHTML(status)}</select>
+        <button class="order-edit-btn" onclick="openEditOrderModal('${id}')"${id ? "" : " disabled"}>✏️ แก้ไข</button>
       </div>
       <div class="order-total">${parseTotal(o.total).toLocaleString("th-TH")} THB</div>
     </div>`;
@@ -657,6 +697,71 @@ async function updateStatus(selectEl, row, id) {
     selectEl.disabled = false;
   }
 }
+
+let editingOrderId = null;
+
+function openEditOrderModal(id) {
+  const o = allOrders.find(x => String(x.id) === id);
+  if (!o) {
+    alert("ไม่พบข้อมูลออเดอร์นี้ กรุณารีเฟรชแล้วลองใหม่");
+    return;
+  }
+  editingOrderId = id;
+  document.getElementById("editOrderName").value = o.name || "";
+  document.getElementById("editOrderPhone").value = o.phone || "";
+  document.getElementById("editOrderAddress").value = (o.address && o.address !== "-") ? o.address : "";
+  const d = getDeliveryDateOnly(o);
+  document.getElementById("editOrderDate").value = d ? toLocalISODate(d) : "";
+  document.getElementById("editOrderItems").value = o.items || "";
+  document.getElementById("editOrderTotal").value = parseTotal(o.total);
+  document.getElementById("editOrderNote").value = (o.note && o.note !== "-") ? o.note : "";
+  document.getElementById("editOrderMsg").textContent = "";
+  document.getElementById("editOrderOverlay").classList.add("open");
+}
+
+function closeEditOrderModal(e) {
+  if (e && e.target !== document.getElementById("editOrderOverlay")) return;
+  document.getElementById("editOrderOverlay").classList.remove("open");
+  editingOrderId = null;
+}
+
+async function saveOrderEdit() {
+  if (!editingOrderId) return;
+  const btn = document.getElementById("editOrderSaveBtn");
+  const msgEl = document.getElementById("editOrderMsg");
+  btn.disabled = true;
+  msgEl.style.color = "var(--choco)";
+  msgEl.textContent = "กำลังบันทึก...";
+  try {
+    const token = sessionStorage.getItem("dash_token");
+    const res = await fetch(API_BASE + "/api/admin/update-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        id: editingOrderId,
+        name: document.getElementById("editOrderName").value.trim(),
+        phone: document.getElementById("editOrderPhone").value.trim(),
+        address: document.getElementById("editOrderAddress").value.trim() || "-",
+        date: document.getElementById("editOrderDate").value || "-",
+        items: document.getElementById("editOrderItems").value.trim(),
+        total: Number(document.getElementById("editOrderTotal").value) || 0,
+        note: document.getElementById("editOrderNote").value.trim() || "-",
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok || result.ok === false) throw new Error(result.error || "save failed");
+    document.getElementById("editOrderOverlay").classList.remove("open");
+    editingOrderId = null;
+    await init();
+  } catch (e) {
+    console.log("Order edit failed:", e);
+    msgEl.style.color = "var(--sorbet)";
+    msgEl.textContent = "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeEditOrderModal(); });
 
 // "YYYY-MM-DD" จาก local date getters แทน d.toISOString().slice(0,10) — toISOString()
 // แปลงเป็น UTC ก่อนเสมอ ซึ่งเลื่อนวันที่ผิดไป 1 วันได้ในไทย (UTC+7): ทั้งช่วงเวลาเที่ยงคืน-06:59

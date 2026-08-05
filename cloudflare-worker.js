@@ -91,6 +91,10 @@ export default {
       return handleAdminUpdateStatus(request, env);
     }
 
+    if (request.method === 'POST' && url.pathname === '/api/admin/update-order') {
+      return handleAdminUpdateOrder(request, env);
+    }
+
     if (request.method === 'GET' && url.pathname === '/api/admin/expenses') {
       return handleAdminExpenses(request, env);
     }
@@ -299,6 +303,46 @@ async function handleAdminUpdateStatus(request, env) {
   } catch (err) {
     console.log('Status update proxy error:', err);
     return json({ ok: false, error: 'Failed to update status' }, 502, CORS_HEADERS);
+  }
+}
+
+// แก้ไขรายละเอียดออเดอร์ (ชื่อ/เบอร์/ที่อยู่/วันที่จัดส่ง/รายการ/ยอดรวม/หมายเหตุ) — เหมือน
+// update-status ทุกอย่างแค่ forward field เพิ่ม ไม่ต้องมี ADMIN_KEY เพราะ Worker เช็ค PIN
+// token (verifyAuthHeader) ให้ก่อนแล้ว เป็นความเสี่ยงระดับเดียวกับ update-status
+async function handleAdminUpdateOrder(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Invalid JSON' }, 400, CORS_HEADERS);
+  }
+  if (!body.id) return json({ error: 'Missing id' }, 400, CORS_HEADERS);
+
+  const payload = { action: 'update_order', id: body.id };
+  ['name', 'phone', 'address', 'date', 'items', 'total', 'note'].forEach(field => {
+    if (field in body) payload[field] = body[field];
+  });
+
+  try {
+    const sheetsRes = await fetch(env.SHEETS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+    });
+    const text = await sheetsRes.text();
+    if (!sheetsRes.ok) {
+      console.log('Sheets update_order rejected:', sheetsRes.status, text);
+      return json({ ok: false, error: 'Sheet rejected the update' }, 502, CORS_HEADERS);
+    }
+    return json({ ok: true }, 200, CORS_HEADERS);
+  } catch (err) {
+    console.log('Order update proxy error:', err);
+    return json({ ok: false, error: 'Failed to update order' }, 502, CORS_HEADERS);
   }
 }
 

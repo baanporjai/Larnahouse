@@ -110,6 +110,10 @@ function doPost(e) {
       return jsonOutput_(updateOrderStatus_(data));
     }
 
+    if (data.action === "update_order") {
+      return jsonOutput_(updateOrder_(data));
+    }
+
     if (data.action === "expense_add" || data.action === "expense_update" || data.action === "expense_delete") {
       // ไม่เช็ค key ตรงนี้เหมือนกัน — Worker เช็ค PIN token ก่อนแล้ว (ดู
       // handleAdminExpenseWrite) เป็นระดับความเสี่ยงเดียวกับ update_status
@@ -182,6 +186,32 @@ function updateOrderStatus_(data) {
 
   sheet.getRange(sheetRow, statusCol).setValue(data.status);
   return { ok: true };
+}
+
+// แก้ไขรายละเอียดออเดอร์ (จากปุ่มแก้ไขในหน้า dashboard.html) — หาแถวด้วย id แล้วแก้เฉพาะฟิลด์
+// ที่ส่งมา เหมือน updateExpense_ ด้านล่าง (id-based, headers-mapped แทนเลขคอลัมน์ตายตัว)
+function updateOrder_(data) {
+  const sheet = getOrdersSheet_();
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(h => h.toString().trim().toLowerCase());
+  const idCol = headers.indexOf("id") + 1;
+  if (!idCol) return { ok: false, error: "id column not found" };
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: false, error: "No data rows" };
+
+  const editable = ["name", "phone", "address", "date", "items", "total", "note"];
+  const ids = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(data.id)) {
+      editable.forEach(field => {
+        const col = headers.indexOf(field) + 1;
+        if (col && (field in data)) sheet.getRange(i + 2, col).setValue(data[field]);
+      });
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: "Order not found" };
 }
 
 function createOrder_(data) {
