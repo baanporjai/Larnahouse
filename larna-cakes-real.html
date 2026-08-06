@@ -212,7 +212,7 @@ function dl(){
   var btn=document.querySelector('.dlbtn');
   btn.textContent='⏳ กำลังสร้างรูป...';
   var el=document.getElementById('sheet');
-  html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#fdf6ee',logging:false}).then(function(canvas){
+  html2canvas(el,{scale:2,useCORS:false,backgroundColor:'#fdf6ee',logging:false}).then(function(canvas){
     try{
       var a=document.createElement('a');
       a.download='larna-cake-8-flavors.png';
