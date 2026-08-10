@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code สำหรับตู้ — Frozen Larna Cake</title>
+<link rel="icon" href="/favicon.gif" type="image/gif">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --choco-dark:#2b1810;
+    --choco:#4a2c1d;
+    --cream:#fdf6ee;
+    --cream-2:#f7ece0;
+    --frost:#2a9fc9;
+    --gold:#d4a64a;
+    --line-green:#06C755;
+    --muted:#7d6f66;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Prompt",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--cream-2);
+    color:var(--choco-dark);
+    padding:24px 16px;
+  }
+
+  .toolbar{
+    max-width:210mm;margin:0 auto 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  }
+  .toolbar p{font-size:13px;color:var(--muted);}
+  .btn-print{
+    background:var(--choco-dark);color:#fff;border:none;border-radius:10px;
+    padding:10px 20px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .btn-print:hover{background:var(--choco);}
+
+  /* กระดาษ A4 — ตั้งขนาดจริงเป็น mm เพื่อให้สิ่งที่เห็นบนจอตรงกับตอนพิมพ์ */
+  .sheet{
+    width:210mm;min-height:297mm;margin:0 auto;background:#fff;
+    box-shadow:0 10px 30px rgba(43,24,16,.12);
+    padding:18mm 16mm;display:flex;flex-direction:column;
+  }
+
+  .head{text-align:center;border-bottom:2px solid var(--cream-2);padding-bottom:8mm;}
+  .head img{height:22mm;width:auto;object-fit:contain;border-radius:8px;}
+  .head h1{font-size:30px;font-weight:900;margin-top:5mm;line-height:1.2;}
+  .head h1 em{font-style:normal;color:var(--frost);}
+  .head p{font-size:15px;color:var(--muted);margin-top:2mm;font-weight:300;}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:10mm;margin-top:10mm;}
+  .card{
+    border:2px solid var(--cream-2);border-radius:16px;padding:8mm 6mm;text-align:center;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .card.line{border-color:var(--line-green);}
+  .card.web{border-color:var(--frost);}
+
+  .badge{
+    display:inline-block;border-radius:999px;padding:4px 14px;
+    font-size:13px;font-weight:800;color:#fff;margin-bottom:5mm;
+  }
+  .card.line .badge{background:var(--line-green);}
+  .card.web .badge{background:var(--frost);}
+
+  /* ขอบขาวรอบ QR (quiet zone) จำเป็นต่อการสแกน ห้ามตัดชิดขอบ */
+  .qr{width:58mm;height:58mm;padding:3mm;background:#fff;}
+  .qr img{width:100%;height:100%;display:block;}
+
+  .card h2{font-size:19px;font-weight:800;margin-top:5mm;}
+  .card .sub{font-size:14px;color:var(--muted);margin-top:2mm;font-weight:300;line-height:1.5;}
+  .card .handle{
+    margin-top:4mm;font-size:16px;font-weight:700;letter-spacing:.3px;
+    background:var(--cream);border-radius:8px;padding:3mm 5mm;word-break:break-all;
+  }
+
+  .why{
+    margin-top:10mm;background:var(--cream);border-radius:14px;padding:7mm;
+  }
+  .why h3{font-size:16px;font-weight:800;margin-bottom:4mm;}
+  .why ul{list-style:none;display:grid;gap:3mm;}
+  .why li{font-size:14px;font-weight:300;display:flex;gap:3mm;align-items:flex-start;}
+  .why li b{font-weight:700;}
+
+  .foot{
+    margin-top:auto;padding-top:8mm;border-top:2px solid var(--cream-2);
+    text-align:center;font-size:13px;color:var(--muted);font-weight:300;
+  }
+  .foot b{color:var(--choco-dark);font-weight:700;}
+
+  @media print{
+    /* ให้กระดาษเต็มหน้าพอดี ไม่มีขอบเบราว์เซอร์/หัวท้ายมาแทรก */
+    @page{size:A4;margin:0;}
+    body{background:#fff;padding:0;}
+    .toolbar{display:none;}
+    .sheet{width:auto;min-height:auto;box-shadow:none;margin:0;padding:14mm 12mm;}
+    /* บังคับให้พิมพ์สีพื้น/สีขอบออกมาด้วย ไม่งั้นการ์ดจะกลายเป็นขาวล้วน */
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn-print" onclick="window.print()">🖨️ พิมพ์ / บันทึกเป็น PDF</button>
+  <p>ขนาด A4 · พิมพ์แล้วติดที่หน้าตู้ได้เลย</p>
+</div>
+
+<div class="sheet">
+  <div class="head">
+    <img src="/larna-logo.jpg" alt="Frozen Larna Cake">
+    <h1>สแกนเลย<em> รับข่าวสาร &amp; สั่งซื้อ</em></h1>
+    <p>Frozen Larna Cake — เค้กไอศกรีมช็อกโกแลตไทย</p>
+  </div>
+
+  <div class="cards">
+    <div class="card line">
+      <span class="badge">แอดไลน์</span>
+      <div class="qr"><img src="/images/qr-line-oa.svg" alt="QR เพิ่มเพื่อน LINE @baanporjai"></div>
+      <h2>เพิ่มเพื่อนใน LINE</h2>
+      <p class="sub">สั่งซื้อ · สอบถาม · โปรโมชัน</p>
+      <div class="handle">@baanporjai</div>
+    </div>
+
+    <div class="card web">
+      <span class="badge">เว็บไซต์</span>
+      <div class="qr"><img src="/images/qr-website.svg" alt="QR เว็บไซต์ larnacake.baanporjai.com"></div>
+      <h2>ดูเมนูทั้งหมด</h2>
+      <p class="sub">รายละเอียดสินค้า · วิธีสั่ง</p>
+      <div class="handle">larnacake.baanporjai.com</div>
+    </div>
+  </div>
+
+  <div class="why">
+    <h3>แอดไลน์ไว้ดียังไง?</h3>
+    <ul>
+      <li>🎂 <span><b>สั่งเค้กล่วงหน้า</b> — สั่งเป็นกล่อง จัดส่งได้ ไม่ต้องรอตู้เติมของ</span></li>
+      <li>🔔 <span><b>รู้ก่อนใคร</b> — รสชาติใหม่และโปรโมชันส่งตรงถึงคุณ</span></li>
+      <li>💬 <span><b>ถามได้ตลอด</b> — สอบถามสินค้า วิธีเก็บรักษา หรือแจ้งปัญหาตู้</span></li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <b>Frozen Larna Cake</b> · larnacake.baanporjai.com · LINE @baanporjai
+  </div>
+</div>
+
+</body>
+</html>
