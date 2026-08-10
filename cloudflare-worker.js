@@ -119,6 +119,15 @@ export default {
       return handleLineWebhook(request, env, ctx);
     }
 
+    // หน้าสถิติสำหรับจอ WebView ของตู้ขายอัตโนมัติ — render HTML เสร็จสรรพจากฝั่ง Worker
+    // เพราะ WebView ของตู้รัน JavaScript ไม่ได้ ตัวเลขทั้งหมดจึงต้องคำนวณที่นี่แล้วฝังมากับ
+    // HTML เลย (ไม่มี fetch/JS ฝั่ง client) เปิดสาธารณะได้เพราะโชว์เฉพาะยอดรวมเชิงโปรโมท
+    // ไม่มีข้อมูลส่วนตัวลูกค้าและไม่มีตัวเลขรายได้
+    if (request.method === 'GET' && url.pathname.startsWith('/realstat/')) {
+      const branch = url.pathname.slice('/realstat/'.length).replace(/\/+$/, '');
+      return handleRealstat(env, branch);
+    }
+
     return json({ ok: false, error: 'Not found' }, 404, CORS_HEADERS);
   },
 };
@@ -950,6 +959,248 @@ function json(obj, status, headers) {
     status,
     headers: { 'Content-Type': 'application/json', ...headers },
   });
+}
+
+// ── หน้าสถิติหน้าตู้ (/realstat/:branch) ─────────────────────────────────────
+// ชื่อสาขาที่รองรับ — key คือ segment ใน URL, value คือชื่อที่โชว์บนจอ
+const REALSTAT_BRANCHES = {
+  central: 'เซ็นทรัลเฟสติวัล เชียงใหม่',
+};
+
+async function handleRealstat(env, branch) {
+  const branchName = REALSTAT_BRANCHES[branch] || 'Larna House';
+
+  let stats = null;
+  if (env.SHEETS_URL) {
+    try {
+      const res = await fetch(env.SHEETS_URL);
+      const data = await res.json();
+      stats = computeRealstat(Array.isArray(data.orders) ? data.orders : []);
+    } catch (err) {
+      // จอลูกค้าต้องไม่โชว์ error — ถ้าโหลดข้อมูลไม่ได้ก็แสดงหน้าแบรนด์เปล่าๆ แทน
+      console.log('realstat load failed:', err);
+    }
+  }
+
+  const html = renderRealstatPage(branchName, stats);
+  return new Response(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      // ตู้โหลดหน้าครั้งเดียว ไม่ต้องรีเฟรช — cache สั้นๆ พอให้โหลดซ้ำถูกลงเวลาเปิดใหม่
+      'Cache-Control': 'public, max-age=60',
+    },
+  });
+}
+
+// รวมสถิติเชิงโปรโมทจากออเดอร์ทั้งหมด (ไม่นับที่ยกเลิก) — คืนเฉพาะยอดรวม/จำนวน
+// ไม่มีข้อมูลส่วนตัวและไม่มีตัวเลขรายได้ เพราะหน้านี้ลูกค้าหน้าตู้เห็นได้
+function computeRealstat(orders) {
+  const now = new Date();
+  // เดือนปัจจุบันตามเวลาไทย (UTC+7) — Worker รันเป็น UTC จึงต้องบวกชั่วโมงเอง
+  const bkkNow = new Date(now.getTime() + 7 * 3600 * 1000);
+  const curY = bkkNow.getUTCFullYear();
+  const curM = bkkNow.getUTCMonth() + 1;
+
+  const flavorQty = {};
+  const customers = new Set();
+  let totalCakes = 0;
+  let cakesThisMonth = 0;
+  let orderCount = 0;
+
+  orders.forEach((raw) => {
+    const o = {};
+    Object.keys(raw || {}).forEach((k) => { o[k.toLowerCase()] = raw[k]; });
+    if ((o.status || '').toString().trim() === 'ยกเลิก') return;
+
+    orderCount++;
+    if (o.phone) customers.add(String(o.phone).replace(/\D/g, ''));
+
+    const ym = parseRealstatMonth(o.timestamp) || parseRealstatMonth(o.date);
+    const isThisMonth = ym && ym.y === curY && ym.m === curM;
+
+    parseRealstatItems(o.items).forEach(({ name, qty }) => {
+      flavorQty[name] = (flavorQty[name] || 0) + qty;
+      totalCakes += qty;
+      if (isThisMonth) cakesThisMonth += qty;
+    });
+  });
+
+  const topFlavors = Object.entries(flavorQty)
+    .map(([name, qty]) => ({ name, qty }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 6);
+
+  return { totalCakes, cakesThisMonth, orderCount, customerCount: customers.size, topFlavors };
+}
+
+// "ช็อกโกแลต x2, มัทฉะ x1" → [{name:'ช็อกโกแลต',qty:2},{name:'มัทฉะ',qty:1}]
+function parseRealstatItems(str) {
+  return String(str || '')
+    .split(',')
+    .map((s) => {
+      const m = s.trim().match(/^(.+?)\s*x\s*(\d+)$/i);
+      return m ? { name: m[1].trim(), qty: parseInt(m[2], 10) } : null;
+    })
+    .filter(Boolean);
+}
+
+// อ่านปี/เดือน (ตามเวลาไทย) จาก timestamp — รองรับทั้งรูปแบบไทย "DD/MM/YYYY(พ.ศ.), HH:MM"
+// ที่ Apps Script เขียนลงชีต และ ISO string ทั่วไป คืน {y, m} (m = 1-12) หรือ null
+function parseRealstatMonth(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    let y = parseInt(m[3], 10);
+    if (y > 2500) y -= 543; // พ.ศ. → ค.ศ.
+    return { y, m: parseInt(m[2], 10) };
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const bkk = new Date(d.getTime() + 7 * 3600 * 1000);
+    return { y: bkk.getUTCFullYear(), m: bkk.getUTCMonth() + 1 };
+  }
+  return null;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// คั่นหลักพันแบบง่ายๆ (ไม่พึ่ง toLocaleString ที่ข้อมูล locale อาจไม่ครบใน Workers runtime)
+function groupNum(n) {
+  return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function renderRealstatPage(branchName, stats) {
+  const medals = ['🥇', '🥈', '🥉', '4', '5', '6'];
+
+  let bodyInner;
+  if (stats && stats.totalCakes > 0) {
+    const bigStats = [
+      { icon: '🍰', num: groupNum(stats.totalCakes) + '+', label: 'ชิ้นที่ส่งความอร่อยไปแล้ว' },
+      { icon: '😋', num: groupNum(stats.cakesThisMonth), label: 'ชิ้นที่ขายเดือนนี้' },
+      { icon: '❤️', num: groupNum(stats.customerCount) + '+', label: 'ลูกค้าที่ไว้วางใจเรา' },
+    ];
+
+    const statCards = bigStats
+      .map(
+        (s) => `
+        <div class="stat-card">
+          <div class="stat-icon">${s.icon}</div>
+          <div class="stat-num">${escapeHtml(s.num)}</div>
+          <div class="stat-label">${escapeHtml(s.label)}</div>
+        </div>`
+      )
+      .join('');
+
+    const flavorRows = stats.topFlavors
+      .map(
+        (f, i) => `
+        <li class="flavor">
+          <span class="rank">${escapeHtml(medals[i] || String(i + 1))}</span>
+          <span class="flavor-name">${escapeHtml(f.name)}</span>
+          <span class="flavor-qty">${groupNum(f.qty)} ชิ้น</span>
+        </li>`
+      )
+      .join('');
+
+    bodyInner = `
+      <div class="stats-grid">${statCards}</div>
+      <section class="flavors">
+        <h2>🔥 รสชาติขายดี</h2>
+        <ol class="flavor-list">${flavorRows}</ol>
+      </section>`;
+  } else {
+    // ยังไม่มีข้อมูล หรือโหลดข้อมูลไม่ได้ — โชว์หน้าต้อนรับแทนตัวเลข 0 หรือ error
+    bodyInner = `
+      <section class="welcome">
+        <div class="welcome-emoji">🍰</div>
+        <p class="welcome-text">เค้กไอศกรีมช็อกโกแลตไทยแช่แข็ง<br>อบสดใหม่ทุกวันจากครัวกลางของเรา</p>
+      </section>`;
+  }
+
+  return `<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex">
+<title>Larna House — สถิติยอดขาย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --choco-dark:#2b1810; --choco:#4a2c1d; --choco-light:#7a4a30;
+    --cream:#fdf6ee; --cream-2:#f7ece0; --gold:#d4a64a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-text-size-adjust:100%;}
+  html,body{height:100%;}
+  body{
+    font-family:"Prompt",-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+    background:linear-gradient(160deg,var(--cream) 0%,var(--cream-2) 100%);
+    color:var(--choco-dark);
+    min-height:100%;
+    display:flex;flex-direction:column;align-items:center;
+    padding:clamp(20px,4vw,48px) clamp(16px,4vw,40px);
+  }
+  .wrap{width:100%;max-width:860px;display:flex;flex-direction:column;gap:clamp(20px,3.5vw,36px);flex:1;}
+  header{text-align:center;}
+  .brand{font-size:clamp(28px,5vw,52px);font-weight:900;letter-spacing:.5px;color:var(--choco-dark);line-height:1.05;}
+  .brand em{font-style:normal;color:var(--gold);}
+  .tagline{font-size:clamp(14px,2.4vw,20px);font-weight:600;color:var(--choco-light);margin-top:6px;}
+  .branch-badge{
+    display:inline-block;margin-top:14px;padding:8px 20px;border-radius:999px;
+    background:var(--choco-dark);color:#fff;font-size:clamp(13px,2.2vw,18px);font-weight:700;
+  }
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,2.5vw,22px);}
+  .stat-card{
+    background:#fff;border-radius:22px;padding:clamp(18px,3vw,30px) clamp(10px,2vw,18px);
+    text-align:center;box-shadow:0 8px 26px rgba(43,24,16,.10);
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .stat-icon{font-size:clamp(26px,4.5vw,40px);}
+  .stat-num{font-size:clamp(30px,6vw,58px);font-weight:900;color:var(--choco-dark);line-height:1;}
+  .stat-label{font-size:clamp(12px,1.9vw,16px);font-weight:600;color:var(--choco-light);}
+  .flavors{background:#fff;border-radius:26px;padding:clamp(20px,3.5vw,36px);box-shadow:0 8px 26px rgba(43,24,16,.10);}
+  .flavors h2{font-size:clamp(22px,3.6vw,34px);font-weight:800;margin-bottom:18px;text-align:center;}
+  .flavor-list{list-style:none;display:flex;flex-direction:column;gap:clamp(8px,1.6vw,14px);}
+  .flavor{
+    display:flex;align-items:center;gap:clamp(10px,2vw,18px);
+    background:var(--cream);border-radius:16px;padding:clamp(12px,2vw,18px) clamp(14px,2.4vw,22px);
+  }
+  .rank{
+    flex:0 0 auto;width:clamp(34px,5vw,48px);height:clamp(34px,5vw,48px);
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(18px,3vw,26px);font-weight:900;
+    background:var(--choco-dark);color:#fff;border-radius:50%;
+  }
+  .flavor-name{flex:1;font-size:clamp(16px,2.8vw,24px);font-weight:700;color:var(--choco-dark);}
+  .flavor-qty{flex:0 0 auto;font-size:clamp(14px,2.4vw,20px);font-weight:800;color:var(--gold);white-space:nowrap;}
+  .welcome{background:#fff;border-radius:26px;padding:clamp(40px,7vw,72px) clamp(20px,4vw,40px);text-align:center;box-shadow:0 8px 26px rgba(43,24,16,.10);}
+  .welcome-emoji{font-size:clamp(56px,12vw,96px);margin-bottom:16px;}
+  .welcome-text{font-size:clamp(18px,3.2vw,28px);font-weight:700;color:var(--choco-light);line-height:1.5;}
+  footer{text-align:center;font-size:clamp(13px,2vw,17px);font-weight:600;color:var(--choco-light);padding-top:8px;}
+  footer .heart{color:#e0526d;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">Larna <em>House</em></div>
+      <div class="tagline">Frozen Larna Cake · เค้กไอศกรีมช็อกโกแลตไทยแช่แข็ง</div>
+      <div class="branch-badge">🍰 ตู้ ${escapeHtml(branchName)}</div>
+    </header>
+    ${bodyInner}
+    <footer>อบสดใหม่ทุกวัน ทำด้วย<span class="heart"> ♥ </span>จากครัวกลางพัฒนาการ 61</footer>
+  </div>
+</body>
+</html>`;
 }
 
 function buildLineText(order) {
