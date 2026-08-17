@@ -96,3 +96,33 @@ The "Stock", "Log", and "Expenses" tabs all live in the same spreadsheet as "Ord
 5. Update Cloudflare secrets on the `larnaapi` Worker: `INVENTORY_API_URL` should equal `SHEETS_URL` (`wrangler secret put INVENTORY_API_URL --name larnaapi`); the old `EXPENSES_SHEET_URL` secret is no longer used and can be deleted.
 6. Update `js/inventory-config.js`'s `INVENTORY_API_URL` constant (used client-side by `stock.html`/`product.html`/`index.html` to read public stock levels) to that same URL.
 7. Smoke test: `?action=stock` should return `{products:[...]}`, `?action=expenses` should return `{expenses:[...]}` (Worker-proxied, needs a PIN session to reach from the browser), a bot-created order should decrement stock, cancelling one should restore it, and saving an expense on `accounting.html` should actually succeed.
+
+## 7. ยอดขายตู้ (`machine-sales.html`) — แท็บ "inbox"
+
+หน้า `machine-sales.html` (URL จำง่าย `/admin/machine`) แสดงยอดขายที่เกิดขึ้น **หน้าตู้จริง** — คนละชุดข้อมูลกับ `dashboard.html` ที่แสดงออเดอร์ที่ลูกค้าสั่งผ่านเว็บ/LINE โครงหน้าและกราฟทำตามหน้า "ยอดขายตู้" (`stats.html`) ของ O'Fresh แต่ใช้โทนสี/ฟอนต์/เมนูของหน้าแอดมิน Larna
+
+ข้อมูลมาจากแท็บ **"inbox"** ในสเปรดชีต Orders ตัวเดียวกัน ซึ่ง **Ksher payment gateway เป็นคนเติมข้อมูลเข้ามาเอง** ไม่มีใครกรอกมือ และเราไม่มีเส้นทางเขียนกลับ (อ่านเท่านั้น) หัวคอลัมน์ที่ใช้:
+
+```
+Transaction Date | Transaction ID | Ksher Order No | Merchant ID | KioskID | KioskName
+| Payment Method | Coupon | Promotion | Cart Enable | Status | Product Name | Sub Total | Discount | Grand Total
+```
+
+เส้นทางข้อมูล: `machine-sales.html` → Worker `GET /api/admin/machine-sales` (เช็ค PIN token) → Apps Script `?action=machine-sales` → แท็บ inbox
+
+### กติกาการนับที่ต้องรู้ (ไม่ตรงไปตรงมาเหมือนแท็บ Orders)
+
+- **1 แถว = 1 บรรทัดสินค้า ไม่ใช่ 1 บิล** — บิลที่ซื้อ 2 อย่างมี 2 แถวที่ `Transaction ID` ซ้ำกัน ⇒ "จำนวนบิล" นับจาก `Transaction ID` ที่ไม่ซ้ำ
+- **จำนวนชิ้นอยู่ในชื่อสินค้า** — เช่น `3 x มินิ ลาร์นา เค้ก (ออริจินัล)` ⇒ ต้องดึงเลขนำหน้าออกมา ไม่ใช่นับ 1 ชิ้นต่อแถว
+- **`Grand Total` เป็นยอดของบรรทัดนั้น ไม่ใช่ยอดทั้งบิล** ⇒ ยอดบิล = ผลรวมของทุกแถวที่ `Transaction ID` เดียวกัน (และราคาชุดอาจถูกกว่าราคาต่อชิ้นคูณจำนวน เช่น 3 ชิ้น 170 บาท ไม่ใช่ 180)
+- **`Status` มีทั้ง `paid` และ `pending`** — ยอดขายนับแค่ `paid` ส่วน `pending` (ลูกค้ากดสั่งแล้วจ่ายไม่สำเร็จ) โชว์เป็นแถบเตือนจำนวนบิลไว้ เพราะ pending เยอะผิดปกติ = ระบบจ่ายเงินหน้าตู้มีปัญหา
+- **`KioskName`** ใช้เป็นตัวแยกตู้ — ปุ่มเลือกตู้จะโผล่เองเมื่อข้อมูลมีมากกว่า 1 ตู้ (ตอนนี้มีตู้เดียว `larnacake01`)
+
+### ขั้นตอน deploy
+
+1. วาง `_apps-script-reference.gs` ฉบับล่าสุดลง Apps Script ของสเปรดชีต Orders แล้ว **Manage deployments → edit the existing deployment → New version → Deploy** (คง URL `/exec` เดิม `SHEETS_URL` ไม่ต้องเปลี่ยน)
+2. วาง `cloudflare-worker.js` ฉบับล่าสุดลง editor ของ Worker `larnaapi` บน Cloudflare dashboard แล้ว Deploy (เพิ่มเส้นทาง `/api/admin/machine-sales`) — ไม่มี secret ใหม่ ใช้ `SHEETS_URL` ตัวเดิม
+3. push ไฟล์ HTML ขึ้น GitHub ให้ Cloudflare Pages deploy ต่อเอง
+4. Smoke test: `?action=machine-sales` ควรคืน `{sales:[...]}` และเปิด `/admin/machine` แล้วต้องเห็นยอดขาย/บิลตรงกับที่เห็นในแท็บ inbox
+
+> ถ้าหน้าเว็บขึ้น "โหลดข้อมูลยอดขายตู้ไม่ได้" แปลว่าข้อ 1 หรือ 2 ยังไม่ได้ทำ (หรือแท็บชื่อไม่ใช่ `inbox` เป๊ะ — Apps Script จะคืน `{sales:[], error:'sheet "inbox" not found'}` ให้เห็นชัดเจน)

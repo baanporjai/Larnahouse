@@ -1,7 +1,7 @@
 {
   "name": "Larna House Admin",
   "short_name": "Larna Admin",
-  "description": "แดชบอร์ดแอดมิน Larna House — ยอดสั่งซื้อ ลูกค้า บัญชี สต็อกสินค้า",
+  "description": "แดชบอร์ดแอดมิน Larna House — ยอดขายตู้ ยอดสั่งซื้อ ลูกค้า บัญชี สต็อกสินค้า",
   "start_url": "/dashboard.html",
   "scope": "/",
   "display": "standalone",

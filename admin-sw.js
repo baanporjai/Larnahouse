@@ -1,4 +1,5 @@
-// Service worker for the Larna House admin PWA (dashboard/customers/accounting/stock).
+// Service worker for the Larna House admin PWA
+// (machine-sales/dashboard/customers/accounting/stock).
 // Deliberately does no caching — this is a live data dashboard, showing stale
 // cached numbers would be worse than just hitting the network every time.
 // Only exists because Chrome's Android "Add to Home Screen" install prompt

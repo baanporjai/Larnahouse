@@ -2,7 +2,7 @@
 // from here. This file exists only so the code is versioned somewhere; paste
 // it into the Sheet's actual Extensions > Apps Script editor to deploy it.
 //
-// รวม 4 แท็บของสเปรดชีตเดียวกัน (Orders, Stock, Log, Expenses) เข้าเป็น Apps Script
+// รวม 5 แท็บของสเปรดชีตเดียวกัน (Orders, Stock, Log, Expenses, inbox) เข้าเป็น Apps Script
 // โปรเจกต์เดียว deploy เป็น Web App เดียว — เดิมแยกเป็นหลายโปรเจกต์คนละไฟล์ (Orders,
 // Stock, Expenses) ทำให้ตั้ง URL secret ผิดตัวกันได้ง่าย (คนละ Apps Script แต่ดูคล้ายกัน
 // — Cloudflare's EXPENSES_SHEET_URL เคยลืมตั้งไปเลยจนกดบันทึกรายจ่ายไม่ได้เลย) พอรวมเป็น
@@ -10,7 +10,9 @@
 // EXPENSES_SHEET_URL แยกอีกต่อไป — แยกแยะการทำงานด้วย action ที่ส่งมาแทน
 // (update_status/new_order → Orders, adjustStock/setStock → Stock,
 // stock/log/stockAdmin → อ่านข้อมูล Stock/Log, expense_add/expense_update/
-// expense_delete → เขียน Expenses, expenses → อ่าน Expenses)
+// expense_delete → เขียน Expenses, expenses → อ่าน Expenses,
+// machine-sales → อ่าน inbox (ยอดขายตู้จาก Ksher) แบบอ่านเท่านั้น ไม่มี action เขียน
+// เพราะแท็บนี้ Ksher เป็นคนเติมข้อมูลเข้ามาเอง เราไม่ควรไปเขียนทับ)
 //
 // ต้องตั้ง Project Settings > Script Properties > ADMIN_KEY ด้วย (ค่าเดียวกับ
 // INVENTORY_ADMIN_KEY ใน Cloudflare Worker) — ใช้ป้องกัน action adjustStock/setStock/
@@ -23,6 +25,10 @@ const SHEET_NAME_ORDERS = "Orders";
 const SHEET_NAME_STOCK = "Stock";
 const SHEET_NAME_LOG = "Log";
 const SHEET_NAME_EXPENSES = "Expenses";
+// แท็บ "inbox" — รายการขายจริงจากตู้ (Ksher payment gateway ส่งเข้ามาเอง ไม่มีใครกรอกมือ)
+// 1 แถว = 1 บรรทัดสินค้า ไม่ใช่ 1 บิล — บิลเดียวที่ซื้อ 2 อย่างจะมี 2 แถวที่ "Transaction ID"
+// ซ้ำกัน (ดู machine-sales.html ที่นับจำนวนบิลจาก Transaction ID ไม่ใช่จำนวนแถว)
+const SHEET_NAME_INBOX = "inbox";
 
 function getSpreadsheet_() {
   // เปิดสเปรดชีตด้วย ID ตรงๆ แทน getActiveSpreadsheet() เพราะ getActiveSpreadsheet()
@@ -35,6 +41,7 @@ function getOrdersSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_
 function getStockSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_STOCK); }
 function getLogSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_LOG); }
 function getExpensesSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_EXPENSES); }
+function getInboxSheet_() { return getSpreadsheet_().getSheetByName(SHEET_NAME_INBOX); }
 
 function getAdminKey_() {
   return PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
@@ -66,6 +73,17 @@ function formatISODate_(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+// แปลง Date object เป็น "YYYY-MM-DD HH:MM:SS" ปีค.ศ. — ใช้กับคอลัมน์ "Transaction Date" ของแท็บ
+// inbox เท่านั้น จงใจไม่ใช้ formatThaiTimestamp() (ปีพ.ศ. + D/M) เพราะข้อมูลแท็บนี้มาจาก Ksher
+// ไม่ใช่จากเว็บเรา บางแถวเป็น text "16/08/2026 23:02:34" บางแถว Sheets auto-parse เป็น Date object
+// ให้แล้ว — ส่งออกเป็นรูปแบบที่ไม่กำกวมเรื่องลำดับ วัน/เดือน (ISO) ตัดปัญหาฝั่งเบราว์เซอร์เดา D/M
+// สลับเป็น M/D เองเงียบๆ (บั๊กเดียวกับที่ parseTimestamp() ฝั่ง dashboard ต้องมาดักไว้)
+function formatSheetDateTime_(date) {
+  const pad = n => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 // ── ROUTING ──────────────────────────────────────────────────────────────
 
 function doGet(e) {
@@ -86,6 +104,10 @@ function doGet(e) {
     // ไม่เช็ค key ตรงนี้ — เหมือน action อื่นๆ ที่ Worker เป็นคนกรอง auth (PIN token)
     // ให้แล้วก่อนยิงมาถึงนี่ (ดู handleAdminExpenses ใน cloudflare-worker.js)
     return jsonOutput_(getExpensesData_());
+  }
+  if (action === 'machine-sales') {
+    // เหมือน expenses — Worker เช็ค PIN token ให้แล้ว (ดู handleAdminMachineSales)
+    return jsonOutput_(getMachineSalesData_());
   }
 
   // ไม่มี action หรือ action ไม่รู้จัก — พฤติกรรมเดิม: คืนรายการออเดอร์ทั้งหมด
@@ -408,6 +430,32 @@ function getExpensesData_() {
     return e;
   });
   return { expenses };
+}
+
+// อ่านยอดขายตู้จากแท็บ inbox (Ksher เติมข้อมูลเข้ามาเอง) → machine-sales.html
+//
+// คืน key เป็นชื่อคอลัมน์ตัวพิมพ์เล็กแบบเดียวกับ getExpensesData_ แต่ตัดช่องว่างในชื่อออกด้วย
+// ("Transaction Date" → "transactiondate") เพราะชื่อคอลัมน์ของ Ksher มีเว้นวรรคเกือบทุกตัว
+// การอ้าง r["transaction date"] ฝั่งเบราว์เซอร์อ่านยากและพลาดง่ายกว่า r.transactiondate
+//
+// ไม่กรอง status ที่นี่ — ส่งทั้ง paid/pending ออกไปให้หน้าเว็บเป็นคนตัดสินใจ (หน้าเว็บนับยอดขาย
+// จากแถว paid เท่านั้น แต่ก็ยังอยากรู้จำนวนบิลที่ค้าง pending เพื่อดูว่าตู้มีปัญหาจ่ายเงินไหม)
+function getMachineSalesData_() {
+  const sheet = getInboxSheet_();
+  if (!sheet) return { sales: [], error: 'sheet "' + SHEET_NAME_INBOX + '" not found' };
+
+  const rows = sheet.getDataRange().getValues();
+  if (rows.length < 2) return { sales: [] };
+
+  const headers = rows[0].map(h => h.toString().trim().toLowerCase().replace(/\s+/g, ''));
+  const sales = rows.slice(1).map(r => {
+    const s = {};
+    headers.forEach((h, j) => s[h] = r[j]);
+    if (s.transactiondate instanceof Date) s.transactiondate = formatSheetDateTime_(s.transactiondate);
+    return s;
+  }).filter(s => s.transactionid || s.transactiondate); // ข้ามแถวว่างท้ายชีต
+
+  return { sales };
 }
 
 function addExpense_(data) {

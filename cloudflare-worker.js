@@ -14,9 +14,10 @@
  *                                the order notification
  *   SHEETS_URL                 — Apps Script Web App URL, see _apps-script-reference.gs.
  *                                One Apps Script project serves Orders, Stock, Log,
- *                                and Expenses (accounting.html) tabs, routed by an
- *                                `action` parameter — SHEETS_URL and INVENTORY_API_URL
- *                                should both be set to this same URL.
+ *                                Expenses (accounting.html), and inbox
+ *                                (machine-sales.html — ยอดขายตู้จาก Ksher) tabs, routed
+ *                                by an `action` parameter — SHEETS_URL and
+ *                                INVENTORY_API_URL should both be set to this same URL.
  *   ADMIN_PIN                  — PIN for dashboard.html
  *   SESSION_SECRET             — long random string, signs admin session tokens
  *   INVENTORY_API_URL          — same Apps Script Web App URL as SHEETS_URL — used
@@ -101,6 +102,10 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/api/admin/expenses') {
       return handleAdminExpenseWrite(request, env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/api/admin/machine-sales') {
+      return handleAdminMachineSales(request, env);
     }
 
     if (request.method === 'GET' && url.pathname === '/api/admin/stock-log') {
@@ -364,6 +369,24 @@ async function handleAdminExpenses(request, env) {
     return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
   } catch (err) {
     console.log('Expenses sheet proxy error:', err);
+    return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
+  }
+}
+
+// อ่านยอดขายตู้จากแท็บ inbox ของสเปรดชีตเดียวกัน (หน้า machine-sales.html) — Ksher payment
+// gateway เป็นคนเติมข้อมูลแท็บนั้นเข้ามาเอง เราแค่อ่านออกมาแสดง ไม่มีเส้นทางเขียนคู่กัน
+// ต้องผ่าน PIN token เพราะเป็นข้อมูลยอดขาย/ธุรกรรมดิบ ไม่ใช่ตัวเลขสรุปสาธารณะ
+async function handleAdminMachineSales(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  try {
+    const res = await fetch(env.SHEETS_URL + '?action=machine-sales');
+    const text = await res.text();
+    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+  } catch (err) {
+    console.log('Machine sales sheet proxy error:', err);
     return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
   }
 }

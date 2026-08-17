@@ -1,4 +1,5 @@
 # URL จำง่ายสำหรับหน้าแอดมิน (Cloudflare Pages อ่านไฟล์นี้อัตโนมัติ)
 /admin              /dashboard.html    200
+/admin/machine      /machine-sales.html 200
 /admin/customers    /customers.html    200
 /admin/accounting   /accounting.html   200

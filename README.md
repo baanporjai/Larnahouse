@@ -9,7 +9,8 @@ LarnaCake/
 ├── index.html                    เว็บหน้าหลัก
 ├── product.html                  หน้ารายละเอียดสินค้า
 ├── order.html                    ฟอร์มสั่งซื้อ
-├── dashboard.html                แดชบอร์ดยอดขาย (ใช้ภายใน)
+├── dashboard.html                แดชบอร์ดยอดสั่งซื้อทางเว็บ/LINE (ใช้ภายใน)
+├── machine-sales.html            ยอดขายหน้าตู้จริง จากแท็บ "inbox" ที่ Ksher เติมให้ (ใช้ภายใน)
 ├── css/style.css, js/i18n.js, js/products.js
 ├── favicon.gif
 ├── robots.txt, sitemap.xml       สำหรับ SEO
