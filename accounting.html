@@ -77,8 +77,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     --choco-dark: #1C0F08;
     --choco: #4A2C1D;
     --choco-soft: #8A6A54;
-    --frost: #3FB6DE;
-    --frost-deep: #1E7A9C;
+    /* สีเน้นของหน้าแอดมินเป็นโทนน้ำตาลโกโก้ (เดิมเป็นฟ้า --frost) — เข้ากับแบรนด์เค้ก
+       ช็อกโกแลตกว่า และคอนทราสต์กับตัวอักษรขาวผ่าน AA ทั้งคู่ (5.2:1 / 7.4:1) */
+    --cocoa: #96603C;
+    --cocoa-deep: #7A4A2B;
     --cream: #FBF3E7;
     --cream-2: #F0E3D1;
     --gold: #D4A64A;
@@ -110,7 +112,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
     text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
   }
-  .page-tab.active { background: var(--frost); color: #fff; }
+  .page-tab.active { background: var(--cocoa); color: #fff; }
   .page-tab:not(.active):hover { color: #fff; }
   .bottom-nav { display: none; }
   .bnav-item {
@@ -169,7 +171,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   }
   .stat-value.negative { color: var(--sorbet); }
   .stat-unit { font-size: 13px; font-weight: 400; opacity: 0.45; margin-top: 4px; }
-  .stat-card.highlight { background: linear-gradient(135deg, var(--choco-dark) 0%, var(--frost-deep) 160%); }
+  .stat-card.highlight { background: linear-gradient(135deg, var(--choco-dark) 0%, #A9714B 170%); }
   .stat-card.highlight .stat-label { color: rgba(255,255,255,.75); }
   .stat-card.highlight .stat-value { color: #fff; }
   .stat-card.highlight .stat-value.negative { color: var(--sorbet-soft); }
@@ -203,9 +205,9 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 
   .add-btn {
     display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 999px; border: none;
-    background: var(--frost); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+    background: var(--cocoa); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
   }
-  .add-btn:hover { background: var(--frost-deep); }
+  .add-btn:hover { background: var(--cocoa-deep); }
 
   /* Modal + form */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(43,24,16,0.45); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
@@ -226,14 +228,14 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid var(--cream-2);
     font-family: inherit; font-size: 14px; color: var(--choco-dark); outline: none; background: #fff;
   }
-  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--frost); }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--cocoa); }
   .form-field textarea { resize: vertical; min-height: 60px; }
   .form-actions { display: flex; gap: 10px; margin-top: 20px; }
   .btn-primary {
     flex: 1; padding: 12px; border: none; border-radius: 12px; cursor: pointer;
-    background: var(--frost); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+    background: var(--cocoa); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
   }
-  .btn-primary:hover { background: var(--frost-deep); }
+  .btn-primary:hover { background: var(--cocoa-deep); }
   .btn-primary:disabled { opacity: .6; cursor: wait; }
   .btn-danger {
     padding: 12px 18px; border-radius: 12px; border: 1.5px solid var(--sorbet-soft); background: #fff;
@@ -369,6 +371,8 @@ const CATEGORIES = {
   cogs: ["ต้นทุนสินค้า", "บรรจุภัณฑ์/กล่องเค้ก", "ค่าขนส่งวัตถุดิบ", "ต้นทุนอื่นๆ"],
   opex: ["ค่าเช่า/ค่าน้ำค่าไฟครัว", "ค่าแรง", "ค่าจัดส่ง/ค่าน้ำมัน", "การตลาด/โฆษณา", "ค่าธรรมเนียมการชำระเงิน", "อื่นๆ"],
 };
+// ชุดสีแยก "หมวด" ค่าใช้จ่าย ต้องต่างเฉดกันให้เห็นชัด จึงไม่ผูกกับสีธีมน้ำตาล — ถ้าเปลี่ยนฟ้า
+// สองตัวนี้เป็นน้ำตาลด้วย จะเหลือโทนดิน 5 ใน 8 สี แยกหมวดใน legend ด้วยตาไม่ออก
 const CAT_COLORS = ["#3FB6DE", "#D4A64A", "#E85D4C", "#27ae60", "#8A6A54", "#1E7A9C", "#6B3FA0", "#4A2C1D"];
 
 async function loadOrders() {
@@ -495,7 +499,7 @@ function renderTrendChart() {
     data: {
       labels,
       datasets: [
-        { type: "bar", label: "รายได้", data: revenue, backgroundColor: "rgba(63,182,222,0.65)", borderRadius: 6, order: 2 },
+        { type: "bar", label: "รายได้", data: revenue, backgroundColor: "rgba(150,96,60,0.7)", borderRadius: 6, order: 2 },
         { type: "bar", label: "ต้นทุน (COGS)", data: cogs, backgroundColor: "rgba(212,166,74,0.75)", borderRadius: 6, order: 2 },
         { type: "bar", label: "รายจ่าย (OPEX)", data: opex, backgroundColor: "rgba(232,93,76,0.65)", borderRadius: 6, order: 2 },
         { type: "line", label: "กำไรสุทธิ", data: net, borderColor: "#1C0F08", backgroundColor: "#1C0F08", tension: .3, pointRadius: 4, pointBackgroundColor: "#1C0F08", order: 1 },

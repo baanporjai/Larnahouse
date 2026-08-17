@@ -76,8 +76,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     --choco-dark: #1C0F08;
     --choco: #4A2C1D;
     --choco-soft: #8A6A54;
-    --frost: #3FB6DE;
-    --frost-deep: #1E7A9C;
+    /* สีเน้นของหน้าแอดมินเป็นโทนน้ำตาลโกโก้ (เดิมเป็นฟ้า --frost) — เข้ากับแบรนด์เค้ก
+       ช็อกโกแลตกว่า และคอนทราสต์กับตัวอักษรขาวผ่าน AA ทั้งคู่ (5.2:1 / 7.4:1) */
+    --cocoa: #96603C;
+    --cocoa-deep: #7A4A2B;
     --cream: #FBF3E7;
     --cream-2: #F0E3D1;
     --gold: #D4A64A;
@@ -109,7 +111,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
     text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
   }
-  .page-tab.active { background: var(--frost); color: #fff; }
+  .page-tab.active { background: var(--cocoa); color: #fff; }
   .page-tab:not(.active):hover { color: #fff; }
   .bottom-nav { display: none; }
   .bnav-item {
@@ -137,7 +139,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     box-shadow: 0 2px 12px rgba(43,24,16,0.07);
   }
   .kpi-mini-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--choco); opacity: .5; font-weight: 700; }
-  .kpi-mini-value { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--frost-deep); margin-top: 4px; }
+  .kpi-mini-value { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--cocoa-deep); margin-top: 4px; }
   .kpi-mini.clickable { cursor: pointer; transition: transform .15s, box-shadow .15s; }
   .kpi-mini.clickable:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(43,24,16,0.14); }
 
@@ -148,7 +150,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     font-size: 14px; color: var(--choco-dark); background: #fff;
     box-shadow: 0 2px 12px rgba(43,24,16,0.07); outline: none; transition: border-color .2s;
   }
-  .search-bar input:focus { border-color: var(--frost); }
+  .search-bar input:focus { border-color: var(--cocoa); }
   .sort-select {
     padding: 13px 16px; border-radius: 14px; border: 1.5px solid var(--cream-2);
     font-family: inherit; font-size: 13px; color: var(--choco-dark);
@@ -169,12 +171,12 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .cust-row:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(43,24,16,0.14); }
   .cust-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .cust-name { font-weight: 700; font-size: 15px; color: var(--choco-dark); }
-  .cust-total { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--frost-deep); white-space: nowrap; }
+  .cust-total { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--cocoa-deep); white-space: nowrap; }
   .cust-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--choco); opacity: .65; }
   .cust-dates { margin-top: 4px; font-size: 11px; color: var(--choco); opacity: .5; }
   .cust-badge {
     display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 20px;
-    font-size: 11px; font-weight: 700; background: rgba(63,182,222,.15); color: var(--frost-deep);
+    font-size: 11px; font-weight: 700; background: rgba(150,96,60,.14); color: var(--cocoa-deep);
   }
   .cust-trophy { display: inline-block; margin-right: 6px; font-size: 16px; }
   .cust-row.rank-1 { box-shadow: 0 2px 12px rgba(43,24,16,0.07), 0 0 0 1px rgba(212,166,74,.4) inset; }
@@ -215,7 +217,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .repeat-stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 18px; }
   .repeat-stat { background: var(--cream); border-radius: 12px; padding: 12px 14px; }
   .repeat-stat-label { font-size: 11px; color: var(--choco); opacity: .6; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-  .repeat-stat-value { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--frost-deep); margin-top: 2px; }
+  .repeat-stat-value { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--cocoa-deep); margin-top: 2px; }
   .repeat-row {
     display: flex; justify-content: space-between; align-items: center; gap: 10px;
     padding: 11px 0; border-bottom: 1px solid var(--cream-2); cursor: pointer; transition: background .15s;
@@ -224,7 +226,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .repeat-row:hover { background: var(--cream); }
   .repeat-row-name { font-weight: 700; font-size: 13px; color: var(--choco-dark); }
   .repeat-row-meta { font-size: 11px; color: var(--choco); opacity: .6; margin-top: 2px; }
-  .repeat-row-total { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--frost-deep); white-space: nowrap; }
+  .repeat-row-total { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--cocoa-deep); white-space: nowrap; }
 
   @media (max-width: 500px) {
     .kpi-strip { grid-template-columns: repeat(2, 1fr); }

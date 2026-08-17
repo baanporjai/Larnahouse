@@ -77,8 +77,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     --choco-dark: #1C0F08;
     --choco: #4A2C1D;
     --choco-soft: #8A6A54;
-    --frost: #3FB6DE;
-    --frost-deep: #1E7A9C;
+    /* สีเน้นของหน้าแอดมินเป็นโทนน้ำตาลโกโก้ (เดิมเป็นฟ้า --frost) — เข้ากับแบรนด์เค้ก
+       ช็อกโกแลตกว่า และคอนทราสต์กับตัวอักษรขาวผ่าน AA ทั้งคู่ (5.2:1 / 7.4:1) */
+    --cocoa: #96603C;
+    --cocoa-deep: #7A4A2B;
     --cream: #FBF3E7;
     --cream-2: #F0E3D1;
     --gold: #D4A64A;
@@ -110,7 +112,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     padding: 6px 16px; border-radius: 24px; font-size: 12px; font-weight: 700;
     text-decoration: none; color: rgba(255,255,255,.6); transition: all .2s; white-space: nowrap;
   }
-  .page-tab.active { background: var(--frost); color: #fff; }
+  .page-tab.active { background: var(--cocoa); color: #fff; }
   .page-tab:not(.active):hover { color: #fff; }
   .bottom-nav { display: none; }
   .bnav-item {
@@ -155,7 +157,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     font-size: 14px; color: var(--choco-dark); background: #fff;
     box-shadow: 0 2px 12px rgba(43,24,16,0.07); outline: none; transition: border-color .2s;
   }
-  .search-bar input:focus { border-color: var(--frost); }
+  .search-bar input:focus { border-color: var(--cocoa); }
 
   .compare-row {
     display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;
@@ -200,7 +202,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     font-variant-numeric: tabular-nums;
   }
   .stat-unit { font-size: 13px; font-weight: 400; opacity: 0.45; margin-top: 4px; }
-  .stat-card.highlight { background: linear-gradient(135deg, var(--choco-dark) 0%, var(--frost-deep) 160%); }
+  .stat-card.highlight { background: linear-gradient(135deg, var(--choco-dark) 0%, #A9714B 170%); }
   .stat-card.highlight .stat-label { color: rgba(255,255,255,.75); }
   .stat-card.highlight .stat-value { color: #fff; }
   .stat-card.highlight .stat-unit { color: rgba(255,255,255,0.5); }
@@ -231,7 +233,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   }
   .section-header h3 { margin-bottom: 0; }
   .count-badge {
-    background: var(--frost);
+    background: var(--cocoa);
     color: #fff;
     border-radius: 999px;
     padding: 2px 12px;
@@ -269,7 +271,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   .order-row.urgent .order-date-label { color: var(--sorbet); }
   .order-name { font-weight: 700; font-size: 14px; }
   .order-meta { font-size: 12px; color: var(--choco); opacity: 0.55; margin-top: 3px; }
-  .order-date-label { font-size: 12px; color: var(--frost); font-weight: 700; margin-top: 3px; }
+  .order-date-label { font-size: 12px; color: var(--cocoa); font-weight: 700; margin-top: 3px; }
   .order-items { font-size: 13px; color: var(--choco); margin-top: 5px; }
   .order-note { font-size: 12px; color: #888; margin-top: 3px; }
   .order-total {
@@ -299,7 +301,8 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   }
   .status-select:disabled { opacity: .6; cursor: wait; }
   .status-รอยืนยัน   { background-color: #F7E7C4; color: #8A6215; }
-  .status-ยืนยันแล้ว  { background-color: #DCF1F8; color: var(--frost-deep); }
+  /* ชุดสีสถานะเป็นรหัสสื่อความหมาย ไม่ผูกกับสีธีม — คงฟ้าไว้เพื่อให้ 5 สถานะยังแยกออกจากกันได้ */
+  .status-ยืนยันแล้ว  { background-color: #DCF1F8; color: #1E7A9C; }
   .status-แพ็คแล้ว    { background-color: #EAE0F4; color: #6B3FA0; }
   .status-จัดส่งแล้ว   { background-color: #DCEFDF; color: #1E7A3C; }
   .status-ยกเลิก     { background-color: #E5E0DA; color: var(--choco-soft); }
@@ -380,14 +383,14 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
     width: 100%; padding: 11px 14px; border-radius: 10px; border: 1.5px solid var(--cream-2);
     font-family: inherit; font-size: 14px; color: var(--choco-dark); outline: none; background: #fff;
   }
-  .form-field input:focus, .form-field textarea:focus { border-color: var(--frost); }
+  .form-field input:focus, .form-field textarea:focus { border-color: var(--cocoa); }
   .form-field textarea { resize: vertical; min-height: 50px; }
   .form-actions { display: flex; gap: 10px; margin-top: 20px; }
   .btn-primary {
     flex: 1; padding: 12px; border: none; border-radius: 12px; cursor: pointer;
-    background: var(--frost); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+    background: var(--cocoa); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
   }
-  .btn-primary:hover { background: var(--frost-deep); }
+  .btn-primary:hover { background: var(--cocoa-deep); }
   .btn-primary:disabled { opacity: .6; cursor: wait; }
 
   @media (max-width: 680px) {
@@ -1059,7 +1062,7 @@ function render(orders) {
       datasets: [{
         label: "THB",
         data: dailyValues,
-        backgroundColor: days.map(d => d === today ? "rgba(42,159,201,1)" : "rgba(42,159,201,0.5)"),
+        backgroundColor: days.map(d => d === today ? "rgba(122,74,43,1)" : "rgba(150,96,60,0.5)"),
         borderRadius: 6,
         borderSkipped: false,
       }]
@@ -1104,7 +1107,7 @@ function render(orders) {
       labels: monthlySeries.labels,
       datasets: [{
         data: monthlySeries.data,
-        backgroundColor: "rgba(30,122,156,0.65)",
+        backgroundColor: "rgba(122,74,43,0.65)",
         borderRadius: 6,
         borderSkipped: false,
       }]
