@@ -353,6 +353,32 @@ function parseTotal(str) {
 
 function monthKey(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
 
+// Apps Script ส่ง "Transaction Date" ของยอดขายตู้มาเป็น "YYYY-MM-DD HH:MM:SS" เป็นหลัก
+// (คนละรูปแบบกับ order timestamp ที่ parseTimestamp() ด้านบนรองรับ) จงใจแยกฟังก์ชันแทนที่จะ
+// ยัดเข้า parseTimestamp เดียว กันพังของเดิม — ก็อปมาจาก machine-sales.html ให้ตรงกันเป๊ะ
+function parseSaleDate(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const year = +m[3] > 2500 ? +m[3] - 543 : +m[3]; // เผื่อปีพ.ศ.
+    return new Date(year, +m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0));
+  }
+
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+function toNum(v) {
+  if (typeof v === "number") return v;
+  const n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.-]/g, ""));
+  return isNaN(n) ? 0 : n;
+}
+
 function formatDateISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -401,13 +427,38 @@ async function loadExpenses() {
   });
 }
 
-function computeMonthlyPL(orderRows, expenseRows) {
+// ยอดขายตู้ (Ksher) มาจากชีตคนละก้อนกับออเดอร์ปกติ — ดู machine-sales.html โหลด/normalize
+// ข้อมูลชุดเดียวกันนี้แยกกันสำหรับหน้านั้นโดยเฉพาะ (แสดงรายละเอียดต่อบิล/สินค้า) หน้านี้
+// สนใจแค่ยอดรวมต่อเดือนไปรวมกับ "รายได้รวม" เท่านั้น
+async function loadMachineSales() {
+  const token = sessionStorage.getItem("dash_token");
+  const res = await fetch(API_BASE + "/api/admin/machine-sales", { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) throw new Error("unauthorized");
+  const json = await res.json();
+  return (json.sales || []).map(r => {
+    const normalized = {};
+    Object.keys(r).forEach(k => normalized[k.toLowerCase()] = r[k]);
+    return {
+      datetime: parseSaleDate(normalized.transactiondate),
+      status: String(normalized.status || "").trim().toLowerCase(),
+      amount: toNum(normalized.grandtotal),
+    };
+  });
+}
+
+function computeMonthlyPL(orderRows, expenseRows, machineSalesRows) {
   const months = {};
   const ensure = k => months[k] || (months[k] = { revenue: 0, cogs: 0, opex: 0 });
   orderRows.forEach(o => {
     const ts = parseTimestamp(o.timestamp);
     if (!ts) return;
     ensure(monthKey(ts)).revenue += parseTotal(o.total);
+  });
+  // นับเฉพาะบิลที่จ่ายเงินสำเร็จ เหมือนหน้ายอดขายตู้ (machine-sales.html) — pending ยังไม่ใช่
+  // เงินจริง อย่านับเป็นรายได้
+  (machineSalesRows || []).forEach(r => {
+    if (r.status !== "paid" || !r.datetime) return;
+    ensure(monthKey(r.datetime)).revenue += r.amount;
   });
   expenseRows.forEach(r => {
     if (!r.date) return;
@@ -666,7 +717,7 @@ async function saveExpense(e) {
     if (result && result.success !== false) {
       closeExpenseModal();
       window._expenses = await loadExpenses();
-      window._months = computeMonthlyPL(window._orders || [], window._expenses || []);
+      window._months = computeMonthlyPL(window._orders || [], window._expenses || [], window._machineSales || []);
       populateMonthFilter();
       renderAll();
     }
@@ -681,7 +732,7 @@ async function deleteExpenseRow(id) {
   if (result && result.success !== false) {
     closeExpenseModal();
     window._expenses = await loadExpenses();
-    window._months = computeMonthlyPL(window._orders || [], window._expenses || []);
+    window._months = computeMonthlyPL(window._orders || [], window._expenses || [], window._machineSales || []);
     populateMonthFilter();
     renderAll();
   }
@@ -753,10 +804,11 @@ function renderLayout() {
 async function init() {
   document.getElementById("lastUpdated").textContent = "กำลังโหลด...";
   try {
-    const [orders, expenses] = await Promise.all([loadOrders(), loadExpenses()]);
+    const [orders, expenses, machineSales] = await Promise.all([loadOrders(), loadExpenses(), loadMachineSales()]);
     window._orders = orders;
     window._expenses = expenses;
-    window._months = computeMonthlyPL(orders, expenses);
+    window._machineSales = machineSales;
+    window._months = computeMonthlyPL(orders, expenses, machineSales);
 
     renderLayout();
     populateMonthFilter();
