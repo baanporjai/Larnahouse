@@ -314,12 +314,15 @@ async function fetchSheetJson(request, ctx, targetUrl, cacheName) {
   // ใส่ timeout เองให้ fail เร็วขึ้นพร้อมข้อความที่บอกสาเหตุชัดเจนแทน
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SHEET_FETCH_TIMEOUT_MS);
+  const startedAt = Date.now();
 
   let res, text;
   try {
     res = await fetch(targetUrl, { signal: controller.signal });
     text = await res.text();
+    console.log(`fetchSheetJson[${cacheName}] upstream took ${Date.now() - startedAt}ms, status ${res.status}`);
   } catch (err) {
+    console.log(`fetchSheetJson[${cacheName}] upstream failed after ${Date.now() - startedAt}ms: ${err.name} ${err.message}`);
     if (err.name === 'AbortError') {
       return json(
         { error: `Apps Script ไม่ตอบภายใน ${SHEET_FETCH_TIMEOUT_MS / 1000} วินาที — เชื่อว่าชีตต้นทางมีข้อมูลเยอะเกินไปจนอ่านช้า ลอง archive แถวเก่าออก` },
