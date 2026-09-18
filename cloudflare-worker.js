@@ -21,9 +21,11 @@
  *   ADMIN_PIN                  — PIN for dashboard.html
  *   SESSION_SECRET             — long random string, signs admin session tokens
  *   INVENTORY_API_URL          — same Apps Script Web App URL as SHEETS_URL — used
- *                                both to deduct stock when an order comes in, and
- *                                to proxy stock.html's log/edit calls (below) so
- *                                the ADMIN_KEY never ships in client-side code
+ *                                to deduct stock when an order comes in, to proxy
+ *                                stock.html's log/edit calls (below) so the ADMIN_KEY
+ *                                never ships in client-side code, and to serve the
+ *                                public GET /api/stock (cached — see SHEET_READ_CACHE_TTL_SECONDS)
+ *                                that index.html/product.html/order.html read via js/inventory.js
  *   INVENTORY_ADMIN_KEY        — ADMIN_KEY Script Property set on that same
  *                                Apps Script project
  *   LINE_CHANNEL_SECRET        — Channel secret (คนละค่ากับ LINE_CHANNEL_ACCESS_TOKEN)
@@ -31,11 +33,17 @@
  *                                webhook ที่ยิงเข้ามา กันคนปลอม request มาสั่งงานบอท
  *   GEMINI_API_KEY             — API key จาก aistudio.google.com/apikey — ใช้ให้ Gemini
  *                                ช่วยอ่าน/แปลงข้อความแอดมินในกลุ่มเป็นออเดอร์ที่มีโครงสร้าง
+ *   WIDGET_TOKEN               — ค่าสุ่มยาวๆ (ตั้งเองได้ ไม่ต้องเป็นรูปแบบพิเศษ) ให้แอป Android
+ *                                widget ปฏิทินยอดขายตู้ส่งมาแนบ header X-Widget-Token ยืนยันตัวก่อน
+ *                                อ่าน /api/widget/daily-sales-calendar — คนละค่ากับ ADMIN_PIN เพราะ
+ *                                widget รีเฟรชพื้นหลังเอง ไม่มีคนกดล็อกอินซ้ำทุก 12 ชม. แบบหน้าแอดมิน
+ *                                ตั้งด้วย `wrangler secret put WIDGET_TOKEN --name larnaapi`
  *
  * See LINE-ORDER-BACKEND-SETUP.md for full setup steps.
  */
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 ชั่วโมง
+const SHEET_READ_CACHE_TTL_SECONDS = 15;
 
 // ── AI order assistant (กลุ่มไลน์แอดมิน) ──
 // แอดมินพิมพ์ออเดอร์แบบข้อความอิสระในกลุ่มนี้ บอทจะให้ Gemini แปลงเป็นออเดอร์แล้วบันทึกลงชีตทันที
@@ -85,7 +93,7 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') {
-      return handleAdminOrders(request, env);
+      return handleAdminOrders(request, env, ctx);
     }
 
     if (request.method === 'POST' && url.pathname === '/api/admin/update-status') {
@@ -97,7 +105,7 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/api/admin/expenses') {
-      return handleAdminExpenses(request, env);
+      return handleAdminExpenses(request, env, ctx);
     }
 
     if (request.method === 'POST' && url.pathname === '/api/admin/expenses') {
@@ -105,7 +113,14 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/api/admin/machine-sales') {
-      return handleAdminMachineSales(request, env);
+      return handleAdminMachineSales(request, env, ctx);
+    }
+
+    // ปฏิทินจำนวนชิ้นที่ขายได้รายวันสำหรับ Android home-screen widget — ต่างจาก
+    // /api/admin/machine-sales ตรงที่นี่สรุปเป็นตัวเลขต่อวันแล้ว (ไม่ใช่ raw แถวธุรกรรม) และผ่าน
+    // WIDGET_TOKEN แทน session/PIN เพราะ widget รีเฟรชพื้นหลังเอง ไม่มีคนกดล็อกอินซ้ำทุก 12 ชม.
+    if (request.method === 'GET' && url.pathname === '/api/widget/daily-sales-calendar') {
+      return handleWidgetDailySales(request, env, ctx);
     }
 
     if (request.method === 'GET' && url.pathname === '/api/admin/stock-log') {
@@ -118,6 +133,14 @@ export default {
 
     if (request.method === 'POST' && url.pathname === '/api/admin/stock-update') {
       return handleAdminStockUpdate(request, env);
+    }
+
+    // อ่านสต็อกสาธารณะ — index.html/product.html/order.html เดิมยิงตรงไปหา Apps Script
+    // จากเบราว์เซอร์ลูกค้าทุกครั้งที่เปิดหน้า (ดู js/inventory.js) ทำให้ Apps Script ทำงาน
+    // หนักและหน้าเว็บโหลดช้าเวลา Apps Script ตอบช้า/โควต้าตัน ย้ายมาพร็อกซีผ่าน Worker แล้ว
+    // ใช้ Cache API เดียวกับ endpoint แอดมิน ให้ผู้ชมหลายคนพร้อมกันแชร์ผลลัพธ์ที่ cache ไว้
+    if (request.method === 'GET' && url.pathname === '/api/stock') {
+      return handlePublicStock(request, env, ctx);
     }
 
     if (request.method === 'POST' && url.pathname === '/api/line/webhook') {
@@ -265,15 +288,55 @@ async function handleAdminLogin(request, env) {
   return json({ success: true, token }, 200, CORS_HEADERS);
 }
 
-async function handleAdminOrders(request, env) {
+async function fetchSheetJson(request, ctx, targetUrl, cacheName) {
+  const url = new URL(request.url);
+  const forceFresh = url.searchParams.has('fresh');
+  const cache = caches.default;
+  const cacheKey = new Request(`https://larna-cache.local/${cacheName}`, { method: 'GET' });
+
+  if (!forceFresh) {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return new Response(cached.body, {
+        headers: {
+          ...CORS_HEADERS,
+          'Content-Type': 'application/json; charset=utf-8',
+          'X-Larna-Cache': 'HIT',
+        },
+      });
+    }
+  }
+
+  const res = await fetch(targetUrl);
+  const text = await res.text();
+  const responseHeaders = {
+    ...CORS_HEADERS,
+    'Content-Type': 'application/json; charset=utf-8',
+    'X-Larna-Cache': forceFresh ? 'BYPASS' : 'MISS',
+  };
+
+  if (!res.ok) {
+    return new Response(text, { status: res.status, headers: responseHeaders });
+  }
+
+  const toCache = new Response(text, {
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': `public, max-age=${SHEET_READ_CACHE_TTL_SECONDS}`,
+    },
+  });
+  if (ctx) ctx.waitUntil(cache.put(cacheKey, toCache));
+
+  return new Response(text, { headers: responseHeaders });
+}
+
+async function handleAdminOrders(request, env, ctx) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
   if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    const res = await fetch(env.SHEETS_URL);
-    const text = await res.text();
-    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return await fetchSheetJson(request, ctx, env.SHEETS_URL, 'admin-orders');
   } catch (err) {
     console.log('Sheet proxy error:', err);
     return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
@@ -358,15 +421,13 @@ async function handleAdminUpdateOrder(request, env) {
 // action=stock — เดิมมี EXPENSES_SHEET_URL แยกเป็นอีก secret ชี้ไป Apps Script อีกโปรเจกต์
 // ที่ไม่เคยตั้งค่าเลย ทำให้บันทึกรายจ่ายไม่ได้เลยตั้งแต่สร้างหน้านี้ขึ้นมา — รวมเข้ากับ
 // SHEETS_URL ตัวเดียวกันแทน ตัดโอกาสลืมตั้ง secret แยกแบบนี้อีก
-async function handleAdminExpenses(request, env) {
+async function handleAdminExpenses(request, env, ctx) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
   if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    const res = await fetch(env.SHEETS_URL + '?action=expenses');
-    const text = await res.text();
-    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return await fetchSheetJson(request, ctx, env.SHEETS_URL + '?action=expenses', 'admin-expenses');
   } catch (err) {
     console.log('Expenses sheet proxy error:', err);
     return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
@@ -376,19 +437,154 @@ async function handleAdminExpenses(request, env) {
 // อ่านยอดขายตู้จากแท็บ inbox ของสเปรดชีตเดียวกัน (หน้า machine-sales.html) — Ksher payment
 // gateway เป็นคนเติมข้อมูลแท็บนั้นเข้ามาเอง เราแค่อ่านออกมาแสดง ไม่มีเส้นทางเขียนคู่กัน
 // ต้องผ่าน PIN token เพราะเป็นข้อมูลยอดขาย/ธุรกรรมดิบ ไม่ใช่ตัวเลขสรุปสาธารณะ
-async function handleAdminMachineSales(request, env) {
+async function handleAdminMachineSales(request, env, ctx) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
   if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    const res = await fetch(env.SHEETS_URL + '?action=machine-sales');
-    const text = await res.text();
-    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return await fetchSheetJson(request, ctx, env.SHEETS_URL + '?action=machine-sales', 'admin-machine-sales');
   } catch (err) {
     console.log('Machine sales sheet proxy error:', err);
     return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
   }
+}
+
+// เอนด์พอยต์สำหรับ Android home-screen widget (ปฏิทินจำนวนชิ้นที่ขายได้รายวันจากตู้) — ต้องแนบ header
+// X-Widget-Token ให้ตรงกับ secret WIDGET_TOKEN เพราะ machine-sales.html เดิมมีแค่ raw ต้องผ่าน PIN
+// session เท่านั้น ?month=YYYY-M (M เป็นเลข 0-11) — ไม่ระบุ = เดือนปัจจุบัน
+async function handleWidgetDailySales(request, env, ctx) {
+  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  const token = request.headers.get('X-Widget-Token') || '';
+  if (!env.WIDGET_TOKEN || !timingSafeEqual(token, env.WIDGET_TOKEN)) {
+    return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  }
+
+  try {
+    const url = new URL(request.url);
+    const monthParam = url.searchParams.get('month');
+
+    const res = await fetchSheetJson(request, ctx, env.SHEETS_URL + '?action=machine-sales', 'widget-machine-sales');
+    const data = await res.json();
+    const rows = parseMachineSalesRows_(data.sales || []);
+    const calendar = computeDailyCalendarCake_(rows, monthParam);
+
+    return json(calendar, 200, CORS_HEADERS);
+  } catch (err) {
+    console.log('Widget daily sales error:', err);
+    return json({ error: 'Failed to compute calendar' }, 502, CORS_HEADERS);
+  }
+}
+
+// แปลงแถวดิบจาก action=machine-sales (ดู _apps-script-reference.gs / machine-sales.html
+// normalizeRow) ให้เหลือแค่ { datetime (UTC instant ที่ถูกต้อง), qty, status } ที่ต้องใช้คำนวณปฏิทิน
+// — จงใจไม่ใช้ new Date(y, mo, d, hr, mn, sec) แบบใน machine-sales.html เพราะโค้ดนั้นรันในเบราว์เซอร์
+// ที่ (สมมติว่า) ตั้ง timezone เป็นไทย ส่วน Worker รันด้วย timezone UTC เสมอ ต้องแปลงเวลาไทยดิบเป็น
+// UTC ให้ถูกต้องด้วยมือผ่าน bangkokTimeToUtc เหมือน OFresh
+function parseMachineSalesRows_(sales) {
+  return sales
+    .map(r => {
+      const datetime = parseSaleDateBangkok_(r.transactiondate);
+      const { qty } = parseProductQty_(r.productname);
+      const status = String(r.status || '').trim().toLowerCase();
+      return { datetime, qty, status };
+    })
+    .filter(r => r.datetime && !isNaN(r.datetime) && r.status === 'paid');
+}
+
+// รูปแบบหลักที่ชีตส่งมาคือ "YYYY-MM-DD HH:MM:SS" (formatSheetDateTime_ ใน Apps Script) แต่กันไว้เผื่อ
+// เป็น text ดิบจาก Ksher แบบ "16/08/2026 23:02:34" เหมือนฝั่ง machine-sales.html — ทั้งสองแบบถือเป็น
+// เวลาไทยเสมอ (ไม่มี timezone suffix)
+function parseSaleDateBangkok_(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return bangkokTimeToUtc(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    const year = +m[3] > 2500 ? +m[3] - 543 : +m[3]; // เผื่อปีพ.ศ.
+    return bangkokTimeToUtc(year, +m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0));
+  }
+
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+// "3 x มินิ ลาร์นา เค้ก (ออริจินัล)" → { qty: 3 } — รองรับ "ชื่อ x3" ด้วยเหมือน machine-sales.html
+function parseProductQty_(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return { qty: 1 };
+  let m = s.match(/^(\d+)\s*[x×]\s*(.+)$/i);
+  if (m) return { qty: +m[1] };
+  m = s.match(/^(.+?)\s*[x×]\s*(\d+)$/i);
+  if (m) return { qty: +m[2] };
+  return { qty: 1 };
+}
+
+// คำนวณจำนวนชิ้นที่ขายได้แยกรายวันของเดือนที่ระบุ (ค่าเริ่มต้น = เดือนปัจจุบัน เวลาไทย) จากแถวที่
+// กรอง status === paid มาแล้ว — โครงเดียวกับ computeDailyCalendar_ ของ OFresh (ดูคอมเมนต์ที่นั่น)
+function computeDailyCalendarCake_(rows, monthParam) {
+  let targetYear, targetMonth;
+  if (monthParam && /^\d{4}-\d{1,2}$/.test(monthParam)) {
+    const [y, m] = monthParam.split('-').map(Number);
+    targetYear = y; targetMonth = m;
+  } else {
+    const cur = toBangkokParts(new Date());
+    targetYear = cur.year; targetMonth = cur.month;
+  }
+
+  const daysInMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const dayCups = {};
+  for (let d = 1; d <= daysInMonth; d++) dayCups[String(d).padStart(2, '0')] = 0;
+
+  let monthCups = 0;
+  rows.forEach(r => {
+    const p = toBangkokParts(r.datetime);
+    if (p.year === targetYear && p.month === targetMonth) {
+      const key = String(p.day).padStart(2, '0');
+      dayCups[key] += r.qty;
+      monthCups += r.qty;
+    }
+  });
+
+  const cur = toBangkokParts(new Date());
+  const isCurrentMonth = cur.year === targetYear && cur.month === targetMonth;
+  const todayKey = isCurrentMonth ? String(cur.day).padStart(2, '0') : null;
+
+  const firstWeekday = new Date(Date.UTC(targetYear, targetMonth, 1)).getUTCDay();
+
+  return {
+    month: `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`,
+    monthLabel: thaiMonthYearLabel_(targetYear, targetMonth),
+    daysInMonth,
+    firstWeekday,
+    cups: dayCups,
+    monthCups,
+    today: todayKey,
+    todayCups: todayKey ? dayCups[todayKey] : 0,
+  };
+}
+
+// ── เวลาไทย ── Worker รันด้วย timezone UTC เสมอ ต้องแปลงเวลาไทยดิบ (ไม่มี timezone suffix)
+// เป็น UTC instant ที่ถูกต้องด้วยมือทุกครั้ง (pattern เดียวกับ order-api-worker.js ของ OFresh)
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function bangkokTimeToUtc(y, mo, d, hr, mn, sec) {
+  return new Date(Date.UTC(y, mo, d, hr, mn, sec || 0) - BANGKOK_OFFSET_MS);
+}
+
+function toBangkokParts(date) {
+  const shifted = new Date(date.getTime() + BANGKOK_OFFSET_MS);
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth(), day: shifted.getUTCDate() };
+}
+
+const TH_MONTH_NAMES_ = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+function thaiMonthYearLabel_(year, month) {
+  return `${TH_MONTH_NAMES_[month]} ${year + 543}`;
 }
 
 // เขียนรายการต้นทุน/ค่าใช้จ่าย (เพิ่ม/แก้ไข/ลบ) — ต้องผ่าน PIN token เพราะเป็นข้อมูลการเงินที่กระทบยอดกำไร
@@ -505,6 +701,19 @@ async function handleAdminStockUpdate(request, env) {
   } catch (err) {
     console.log('Stock update proxy error:', err);
     return json({ error: 'Failed to update stock' }, 502, CORS_HEADERS);
+  }
+}
+
+// ไม่ต้อง auth เพราะ action=stock ไม่มีข้อมูลอ่อนไหว (ไม่มีต้นทุน/ยอดขาย) เหมือนที่
+// stock.html เรียก Apps Script ตรงๆ ได้อยู่แล้วโดยไม่ต้องมี key
+async function handlePublicStock(request, env, ctx) {
+  if (!env.INVENTORY_API_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+
+  try {
+    return await fetchSheetJson(request, ctx, env.INVENTORY_API_URL + '?action=stock', 'public-stock');
+  } catch (err) {
+    console.log('Public stock proxy error:', err);
+    return json({ error: 'Failed to fetch stock' }, 502, CORS_HEADERS);
   }
 }
 

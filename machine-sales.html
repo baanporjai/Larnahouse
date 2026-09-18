@@ -383,7 +383,7 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
   </div>
   <div class="header-right">
     <span id="lastUpdated">กำลังโหลด...</span>
-    <button class="refresh-btn" id="refreshBtn" onclick="init()">🔄 รีเฟรช</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="init(true)">🔄 รีเฟรช</button>
   </div>
   <div class="drip-divider" aria-hidden="true"></div>
 </header>
@@ -1205,9 +1205,9 @@ function render() {
 }
 
 // ── LOAD ─────────────────────────────────────────────────────────────────
-async function loadData() {
+async function loadData(force = false) {
   const token = sessionStorage.getItem("dash_token");
-  const res = await fetch(API_BASE + "/api/admin/machine-sales", {
+  const res = await fetch(API_BASE + "/api/admin/machine-sales" + (force ? "?fresh=1" : ""), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 401) {
@@ -1233,13 +1233,13 @@ async function loadData() {
 }
 
 let refreshTimer;
-async function init() {
+async function init(force = false) {
   clearTimeout(refreshTimer);
   const btn = document.getElementById("refreshBtn");
   if (btn) btn.disabled = true;
   document.getElementById("lastUpdated").textContent = "กำลังโหลด...";
   try {
-    await loadData();
+    await loadData(force);
     // สลับตู้ที่เลือกไว้กลับเป็น "ทุกตู้" ถ้าตู้นั้นหายไปจากข้อมูลชุดใหม่
     if (machineFilter !== "all" && !allRows.some(r => r.kiosk === machineFilter)) machineFilter = "all";
     applyMachineFilter();
@@ -1247,7 +1247,7 @@ async function init() {
     render();
     // Ksher เขียนข้อมูลเข้าชีตแทบจะทันทีที่ลูกค้าจ่ายเงิน — รีเฟรชอัตโนมัติทุก 5 นาที
     // เท่าหน้ายอดสั่งซื้อ พอเห็นยอดใหม่ได้ไวโดยไม่ต้องคอยกดเอง
-    refreshTimer = setTimeout(init, 5 * 60 * 1000);
+    refreshTimer = setTimeout(() => init(false), 5 * 60 * 1000);
   } catch (e) {
     console.log("machine-sales load failed:", e);
     document.getElementById("content").innerHTML = `

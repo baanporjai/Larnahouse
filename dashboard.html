@@ -876,9 +876,9 @@ function formatDateTH(iso) {
   return formatDateDMY(new Date(iso + "T12:00:00"));
 }
 
-async function loadData() {
+async function loadData(force = false) {
   const token = sessionStorage.getItem("dash_token");
-  const res = await fetch(API_BASE + "/api/admin/orders", {
+  const res = await fetch(API_BASE + "/api/admin/orders" + (force ? "?fresh=1" : ""), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 401) {
@@ -1129,14 +1129,14 @@ function render(orders) {
 }
 
 let refreshTimer;
-async function init() {
+async function init(force = true) {
   clearTimeout(refreshTimer);
   document.getElementById("lastUpdated").textContent = "กำลังโหลด...";
   try {
-    const orders = await loadData();
+    const orders = await loadData(force);
     render(orders);
     // Auto-refresh every 5 min
-    refreshTimer = setTimeout(init, 5 * 60 * 1000);
+    refreshTimer = setTimeout(() => init(false), 5 * 60 * 1000);
   } catch(e) {
     document.getElementById("content").innerHTML = `
       <div class="error-state">

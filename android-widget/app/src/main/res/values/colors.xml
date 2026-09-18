@@ -1,0 +1,14 @@
+<resources>
+    <!-- โทนสีเดียวกับเว็บหลัก Larna Cake (choco-dark/gold/cream ใน css/style.css) -->
+    <color name="larna_gold">#D4A64A</color>
+    <color name="bg_card">#FDF6EE</color>
+    <color name="text_primary">#2B1F1A</color>
+    <color name="text_muted">#B3A091</color>
+
+    <color name="heat0">#F2E6D8</color>
+    <color name="heat1">#EAD1A0</color>
+    <color name="heat2">#E0B96E</color>
+    <color name="heat3">#D4A64A</color>
+    <color name="heat4">#B3822E</color>
+    <color name="today_bg">#2B1810</color>
+</resources>

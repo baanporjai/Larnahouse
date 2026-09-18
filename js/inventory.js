@@ -1,13 +1,13 @@
 // Shared stock lookup used by index.html and product.html.
-// Reads INVENTORY_API_URL from js/inventory-config.js.
+// Reads STOCK_API_URL (the Worker's cached proxy) from js/inventory-config.js.
 
 let STOCK_DATA = {};
 let stockLoaded = false;
 
 async function loadStockData() {
-  if (!INVENTORY_API_URL) { stockLoaded = true; return; }
+  if (!STOCK_API_URL) { stockLoaded = true; return; }
   try {
-    const res = await fetch(INVENTORY_API_URL + "?action=stock", { cache: "no-store" });
+    const res = await fetch(STOCK_API_URL);
     const data = await res.json();
     STOCK_DATA = {};
     (data.products || []).forEach(p => { STOCK_DATA[p.id] = p; });
