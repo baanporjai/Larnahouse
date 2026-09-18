@@ -44,6 +44,7 @@
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 ชั่วโมง
 const SHEET_READ_CACHE_TTL_SECONDS = 15;
+const SHEET_FETCH_TIMEOUT_MS = 20 * 1000;
 
 // ── AI order assistant (กลุ่มไลน์แอดมิน) ──
 // แอดมินพิมพ์ออเดอร์แบบข้อความอิสระในกลุ่มนี้ บอทจะให้ Gemini แปลงเป็นออเดอร์แล้วบันทึกลงชีตทันที
@@ -307,8 +308,30 @@ async function fetchSheetJson(request, ctx, targetUrl, cacheName) {
     }
   }
 
-  const res = await fetch(targetUrl);
-  const text = await res.text();
+  // Apps Script บางแท็บ (เช่น inbox ของ machine-sales ที่ Ksher เติมเข้ามาเรื่อยๆ ไม่เคย archive)
+  // อ่านช้าลงเรื่อยๆ ตามจำนวนแถวสะสม จนบางครั้งค้างเกิน 30-40 วินาทีไม่ตอบเลย — โดยดีฟอลต์ fetch()
+  // จะรอไม่มีกำหนดจนกว่า runtime/แพลตฟอร์มจะตัดเอง ทำให้ผู้ใช้เห็นหน้าโหลดค้างนานผิดปกติก่อนจะ error
+  // ใส่ timeout เองให้ fail เร็วขึ้นพร้อมข้อความที่บอกสาเหตุชัดเจนแทน
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SHEET_FETCH_TIMEOUT_MS);
+
+  let res, text;
+  try {
+    res = await fetch(targetUrl, { signal: controller.signal });
+    text = await res.text();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      return json(
+        { error: `Apps Script ไม่ตอบภายใน ${SHEET_FETCH_TIMEOUT_MS / 1000} วินาที — เชื่อว่าชีตต้นทางมีข้อมูลเยอะเกินไปจนอ่านช้า ลอง archive แถวเก่าออก` },
+        504,
+        CORS_HEADERS,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+
   const responseHeaders = {
     ...CORS_HEADERS,
     'Content-Type': 'application/json; charset=utf-8',

@@ -440,15 +440,28 @@ function getExpensesData_() {
 //
 // ไม่กรอง status ที่นี่ — ส่งทั้ง paid/pending ออกไปให้หน้าเว็บเป็นคนตัดสินใจ (หน้าเว็บนับยอดขาย
 // จากแถว paid เท่านั้น แต่ก็ยังอยากรู้จำนวนบิลที่ค้าง pending เพื่อดูว่าตู้มีปัญหาจ่ายเงินไหม)
+// Ksher เติมแถวเข้า inbox เรื่อยๆ ไม่เคย archive ออก — ยิ่งสะสมนานยิ่งมีแถวเยอะ ถ้าอ่านทั้งชีต
+// ทุกครั้ง (getDataRange) เวลาที่ใช้จะโตขึ้นเรื่อยๆ ตามจำนวนแถวสะสมทั้งหมด จนวันหนึ่งช้าจน Worker
+// รอไม่ไหว (ดู SHEET_FETCH_TIMEOUT_MS ใน cloudflare-worker.js) — จำกัดไว้อ่านแค่ N แถวล่าสุดแทน
+// ครอบคลุมเกินพอสำหรับปฏิทิน/สรุปยอดที่ machine-sales.html และ widget ใช้ (ดูข้อมูลย้อนหลังเป็นเดือน
+// ไม่ใช่ทั้งประวัติศาสตร์) ปรับตัวเลขได้ถ้าต้องการดูย้อนหลังไกลกว่านี้
+const MACHINE_SALES_MAX_ROWS = 5000;
+
 function getMachineSalesData_() {
   const sheet = getInboxSheet_();
   if (!sheet) return { sales: [], error: 'sheet "' + SHEET_NAME_INBOX + '" not found' };
 
-  const rows = sheet.getDataRange().getValues();
-  if (rows.length < 2) return { sales: [] };
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return { sales: [] };
 
-  const headers = rows[0].map(h => h.toString().trim().toLowerCase().replace(/\s+/g, ''));
-  const sales = rows.slice(1).map(r => {
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(h => h.toString().trim().toLowerCase().replace(/\s+/g, ''));
+
+  const startRow = Math.max(2, lastRow - MACHINE_SALES_MAX_ROWS + 1);
+  const rows = sheet.getRange(startRow, 1, lastRow - startRow + 1, lastCol).getValues();
+
+  const sales = rows.map(r => {
     const s = {};
     headers.forEach((h, j) => s[h] = r[j]);
     if (s.transactiondate instanceof Date) s.transactiondate = formatSheetDateTime_(s.transactiondate);
