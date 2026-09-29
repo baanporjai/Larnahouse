@@ -1250,10 +1250,15 @@ async function init(force = false) {
     refreshTimer = setTimeout(() => init(false), 5 * 60 * 1000);
   } catch (e) {
     console.log("machine-sales load failed:", e);
+    // โชว์ e.message จริง ๆ แทนคำแนะนำตายตัว — ก่อนหน้านี้ทุก error (timeout 20s จาก Worker,
+    // Unauthorized, Apps Script พังจริง ๆ ฯลฯ) ขึ้นข้อความเดียวกันหมดว่า "เช็ค deploy" ทั้งที่
+    // สาเหตุจริงมีอยู่ใน e.message แล้ว (ดู cloudflare-worker.js: fetchSheetJson) ทำให้ต้องเปิด
+    // DevTools ทุกครั้งกว่าจะรู้ว่าเกิดอะไรขึ้นจริง
+    const reason = (e && e.message) || "ไม่ทราบสาเหตุ";
     document.getElementById("content").innerHTML = `
       <div class="error-state">
-        โหลดข้อมูลยอดขายตู้ไม่ได้ — ตรวจสอบว่า Apps Script deploy เวอร์ชันล่าสุดแล้ว
-        (ต้องมี action <b>machine-sales</b> และมีแท็บชื่อ <b>inbox</b> ในสเปรดชีต)<br><br>
+        โหลดข้อมูลยอดขายตู้ไม่ได้: ${reason}<br><br>
+        <span style="font-size:0.85em;opacity:0.8;">(ถ้าไม่ใช่ปัญหาสิทธิ์เข้าใช้งาน มักเกิดจาก Apps Script อ่านชีตช้าเกินไป — ตรวจว่าตั้งค่า deploy เวอร์ชันล่าสุดแล้ว และมีแท็บชื่อ <b>inbox</b> ในสเปรดชีต)</span><br><br>
         <button onclick="init()" style="margin-top:12px;padding:8px 20px;border-radius:8px;border:none;background:#c0392b;color:#fff;cursor:pointer;font-weight:700;">ลองใหม่</button>
       </div>`;
     document.getElementById("lastUpdated").textContent = "โหลดไม่สำเร็จ";
