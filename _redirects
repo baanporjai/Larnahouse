@@ -3,3 +3,11 @@
 /admin/machine      /machine-sales.html 200
 /admin/customers    /customers.html    200
 /admin/accounting   /accounting.html   200
+
+# server-side files that live in this repo but must not be served as website files
+/cloudflare-worker.js        /not-found 404
+/larna-data.js               /not-found 404
+/wrangler.jsonc              /not-found 404
+/_apps-script-reference.gs   /not-found 404
+/migrations/*                /not-found 404
+/scripts/*                   /not-found 404

@@ -272,14 +272,10 @@ const API_BASE = "https://larnaapi.yai-taweewoot.workers.dev";
 <script>
 const LOW_STOCK_DEFAULT_THRESHOLD = 5;
 
-// อ่าน "สต็อกปัจจุบัน" (action=stock) ไม่ต้องใช้ ADMIN_KEY เลย เรียก Apps Script ตรงๆ ได้
-// (เหมือนที่ index.html/product.html/order.html ใช้อยู่แล้ว) แต่การ "แก้ไข" กับ "ดูประวัติ"
-// ต้องผ่าน Worker เท่านั้น เพราะต้องใช้ ADMIN_KEY ซึ่ง Worker เก็บไว้ฝั่งเซิร์ฟเวอร์ไม่ส่งให้
-// client เห็นค่าจริง — กัน key หลุดไปอยู่ใน public repo ตรงๆ เหมือนที่เคยพลาดมาก่อน
-async function apiGet(params){
-  const url = new URL(INVENTORY_API_URL);
-  Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
-  const res = await fetch(url.toString(), { cache: "no-store" });
+// อ่าน "สต็อกปัจจุบัน" จาก Worker (/api/stock ข้อมูลอยู่ใน D1 ไม่ต้องใช้ PIN) — ?fresh=1 ข้ามแคชของ edge
+// เพื่อให้หลังกดบันทึกเห็นค่าล่าสุดทันที ส่วนการ "แก้ไข" กับ "ดูประวัติ/ต้นทุน" ต้องผ่าน PIN token
+async function apiGet(){
+  const res = await fetch(STOCK_API_URL + "?fresh=1", { cache: "no-store" });
   return res.json();
 }
 
@@ -396,7 +392,7 @@ function renderLog(data){
 }
 
 async function loadStock(){
-  const data = await apiGet({ action: "stock" });
+  const data = await apiGet();
   stockById = {};
   (data.products || []).forEach(p => { stockById[p.id] = p; });
   renderStats();
@@ -405,11 +401,6 @@ async function loadStock(){
 
 async function init(){
   document.getElementById("lastUpdated").textContent = "กำลังโหลด...";
-  if (!INVENTORY_API_URL) {
-    document.getElementById("content").innerHTML = `
-      <div class="error-state">ยังไม่ได้ตั้งค่า INVENTORY_API_URL ใน js/inventory-config.js กรุณา deploy Google Apps Script ก่อนใช้งาน</div>`;
-    return;
-  }
   try {
     await loadStock();
     const data = await apiAdminGet("/api/admin/stock-log");

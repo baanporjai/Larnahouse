@@ -1,8 +1,4 @@
-// Paste the deployed Google Apps Script Web App URL here (ends in /exec).
-// Same URL as SHEETS_URL — Stock/Log logic was merged into the Orders
-// Apps Script project, see _apps-script-reference.gs.
-// Used by stock.html (admin) to read live stock directly.
-const INVENTORY_API_URL = "https://script.google.com/macros/s/AKfycbzpRubMt29bX4jR3UpPWpoCOuz6ZejN456uy59pYxQo-fotpJ5wJW6wAbT0HB5ksep4/exec";
+// Stock now lives in Cloudflare D1 behind the larnaapi Worker — no Google Apps Script URL is needed in the browser.
 
 // Public stock read for the storefront (index.html/product.html/order.html via
 // js/inventory.js) — goes through the larnaapi Worker's cached /api/stock instead of

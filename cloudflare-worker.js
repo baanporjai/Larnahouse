@@ -12,6 +12,7 @@
  *                                LINE Messaging API channel
  *   LINE_TARGET_ID             — userId or groupId that should receive
  *                                the order notification
+ *   MIGRATE_TOKEN              — (ชั่วคราว) ใช้กับ POST /api/migrate/from-sheets ครั้งเดียวตอนย้ายข้อมูล แล้วลบทิ้ง
  *   SHEETS_URL                 — Apps Script Web App URL, see _apps-script-reference.gs.
  *                                One Apps Script project serves Orders, Stock, Log,
  *                                Expenses (accounting.html), and inbox
@@ -39,12 +40,17 @@
  *                                widget รีเฟรชพื้นหลังเอง ไม่มีคนกดล็อกอินซ้ำทุก 12 ชม. แบบหน้าแอดมิน
  *                                ตั้งด้วย `wrangler secret put WIDGET_TOKEN --name larnaapi`
  *
+ * Data lives in Cloudflare D1 (binding DB, schema in migrations/, code in larna-data.js). The old Google Sheet is
+ * only read for (1) kiosk sales that Ksher still writes into its "inbox" tab — copied into D1 every 5 minutes —
+ * and (2) the one-off POST /api/migrate/from-sheets import.
+ *
  * See LINE-ORDER-BACKEND-SETUP.md for full setup steps.
  */
 
+import * as larna from './larna-data.js';
+
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 ชั่วโมง
-const SHEET_READ_CACHE_TTL_SECONDS = 15;
-const SHEET_FETCH_TIMEOUT_MS = 20 * 1000;
+const PUBLIC_STOCK_CACHE_TTL_SECONDS = 15;
 
 // ── AI order assistant (กลุ่มไลน์แอดมิน) ──
 // แอดมินพิมพ์ออเดอร์แบบข้อความอิสระในกลุ่มนี้ บอทจะให้ Gemini แปลงเป็นออเดอร์แล้วบันทึกลงชีตทันที
@@ -78,11 +84,21 @@ const CORS_HEADERS = {
 };
 
 export default {
+  // every 5 minutes: copy new kiosk sales from the Google Sheet into D1
+  async scheduled(event, env, ctx) {
+    if (!env.DB) return;
+    ctx.waitUntil(larna.syncMachineSales(env).then((r) => console.log('machine sales sync', JSON.stringify(r))));
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS_HEADERS });
+    }
+
+    if (request.method === 'POST' && url.pathname === '/api/migrate/from-sheets') {
+      return handleMigrate(request, env);
     }
 
     if (request.method === 'POST' && url.pathname === '/api/order') {
@@ -199,18 +215,11 @@ async function handleOrder(request, env) {
     return json({ ok: false, error: 'Network error contacting LINE' }, 502, CORS_HEADERS);
   }
 
-  // Save to Google Sheets (fire-and-forget — don't fail the order if Sheets is down)
-  if (env.SHEETS_URL) {
-    try {
-      await fetch(env.SHEETS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(order),
-        redirect: 'follow',
-      });
-    } catch (e) {
-      console.log('Sheets log failed (non-fatal):', e);
-    }
+  // Save the order (the LINE notification above already went out, so a database hiccup must not fail the request)
+  try {
+    await larna.createOrder(env.DB, order);
+  } catch (e) {
+    console.log('D1 order save failed (non-fatal):', e);
   }
 
   await deductStock(env, order, 'ออเดอร์เว็บไซต์');
@@ -231,11 +240,8 @@ async function restoreStock(env, items, sourceLabel) {
 }
 
 // แกนกลางของทั้ง deductStock/restoreStock — sign: -1 = ตัด, +1 = คืน
+// ตอนนี้ปรับใน D1 โดยตรง (UPDATE ครั้งเดียวต่อสินค้า) ออเดอร์ที่เข้าพร้อมกันจึงไม่ทับกัน และบันทึก log ให้ในครั้งเดียวกัน
 async function adjustStockForItems(env, items, sign, note) {
-  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) {
-    console.log('adjustStockForItems skipped: INVENTORY_API_URL/INVENTORY_ADMIN_KEY not configured');
-    return;
-  }
   await Promise.all(
     (items || []).map(async (it) => {
       if (!it.id) return;
@@ -243,28 +249,8 @@ async function adjustStockForItems(env, items, sign, note) {
       if (qty <= 0) return;
       const delta = sign * qty;
       try {
-        const res = await fetch(env.INVENTORY_API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            key: env.INVENTORY_ADMIN_KEY,
-            action: 'adjustStock',
-            id: it.id,
-            delta,
-            note,
-          }),
-          redirect: 'follow',
-        });
-        // Apps Script ตอบ error กลับมาเป็น HTTP 200 เสมอ (เช่น {error:'unauthorized'} ถ้า
-        // INVENTORY_ADMIN_KEY ไม่ตรงกับ ADMIN_KEY ใน Script Properties, หรือ {error:'product not found'}
-        // ถ้า id ไม่ตรงกับคอลัมน์ id ในชีต Stock เลย) — ต้องอ่าน body มาเช็คเอง ไม่งั้น fetch จะดู "สำเร็จ"
-        // ตลอดแม้ Apps Script จะไม่ได้แก้อะไรในชีตจริงๆ เลยก็ตาม
-        const text = await res.text();
-        let result;
-        try { result = JSON.parse(text); } catch { result = null; }
-        if (!result || result.error) {
-          console.log('Stock adjust rejected by Apps Script:', it.id, 'delta=' + delta, result ? result.error : text.slice(0, 200));
-        }
+        const result = await larna.adjustStock(env.DB, { id: it.id, delta, note });
+        if (result.error) console.log('Stock adjust rejected:', it.id, 'delta=' + delta, result.error);
       } catch (e) {
         console.log('Stock adjust failed (non-fatal):', it.id, e);
       }
@@ -289,90 +275,23 @@ async function handleAdminLogin(request, env) {
   return json({ success: true, token }, 200, CORS_HEADERS);
 }
 
-async function fetchSheetJson(request, ctx, targetUrl, cacheName) {
-  const url = new URL(request.url);
-  const forceFresh = url.searchParams.has('fresh');
-  const cache = caches.default;
-  const cacheKey = new Request(`https://larna-cache.local/${cacheName}`, { method: 'GET' });
 
-  if (!forceFresh) {
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      return new Response(cached.body, {
-        headers: {
-          ...CORS_HEADERS,
-          'Content-Type': 'application/json; charset=utf-8',
-          'X-Larna-Cache': 'HIT',
-        },
-      });
-    }
-  }
-
-  // Apps Script บางแท็บ (เช่น inbox ของ machine-sales ที่ Ksher เติมเข้ามาเรื่อยๆ ไม่เคย archive)
-  // อ่านช้าลงเรื่อยๆ ตามจำนวนแถวสะสม จนบางครั้งค้างเกิน 30-40 วินาทีไม่ตอบเลย — โดยดีฟอลต์ fetch()
-  // จะรอไม่มีกำหนดจนกว่า runtime/แพลตฟอร์มจะตัดเอง ทำให้ผู้ใช้เห็นหน้าโหลดค้างนานผิดปกติก่อนจะ error
-  // ใส่ timeout เองให้ fail เร็วขึ้นพร้อมข้อความที่บอกสาเหตุชัดเจนแทน
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SHEET_FETCH_TIMEOUT_MS);
-  const startedAt = Date.now();
-
-  let res, text;
-  try {
-    res = await fetch(targetUrl, { signal: controller.signal });
-    text = await res.text();
-    console.log(`fetchSheetJson[${cacheName}] upstream took ${Date.now() - startedAt}ms, status ${res.status}`);
-  } catch (err) {
-    console.log(`fetchSheetJson[${cacheName}] upstream failed after ${Date.now() - startedAt}ms: ${err.name} ${err.message}`);
-    if (err.name === 'AbortError') {
-      return json(
-        { error: `Apps Script ไม่ตอบภายใน ${SHEET_FETCH_TIMEOUT_MS / 1000} วินาที — เชื่อว่าชีตต้นทางมีข้อมูลเยอะเกินไปจนอ่านช้า ลอง archive แถวเก่าออก` },
-        504,
-        CORS_HEADERS,
-      );
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  const responseHeaders = {
-    ...CORS_HEADERS,
-    'Content-Type': 'application/json; charset=utf-8',
-    'X-Larna-Cache': forceFresh ? 'BYPASS' : 'MISS',
-  };
-
-  if (!res.ok) {
-    return new Response(text, { status: res.status, headers: responseHeaders });
-  }
-
-  const toCache = new Response(text, {
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': `public, max-age=${SHEET_READ_CACHE_TTL_SECONDS}`,
-    },
-  });
-  if (ctx) ctx.waitUntil(cache.put(cacheKey, toCache));
-
-  return new Response(text, { headers: responseHeaders });
-}
 
 async function handleAdminOrders(request, env, ctx) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    return await fetchSheetJson(request, ctx, env.SHEETS_URL, 'admin-orders');
+    return json(await larna.listOrders(env.DB), 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Sheet proxy error:', err);
-    return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
+    console.log('Orders read error:', err);
+    return json({ error: 'Failed to read orders' }, 502, CORS_HEADERS);
   }
 }
 
 async function handleAdminUpdateStatus(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   let body;
   try {
@@ -382,31 +301,19 @@ async function handleAdminUpdateStatus(request, env) {
   }
 
   try {
-    const sheetsRes = await fetch(env.SHEETS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'update_status', row: body.row, id: body.id, status: body.status }),
-      redirect: 'follow',
-    });
-    const text = await sheetsRes.text();
-    if (!sheetsRes.ok) {
-      console.log('Sheets update_status rejected:', sheetsRes.status, text);
-      return json({ ok: false, error: 'Sheet rejected the update' }, 502, CORS_HEADERS);
-    }
+    const result = await larna.updateOrderStatus(env.DB, { id: body.id, row: body.row, status: body.status });
+    if (!result.ok) return json(result, 404, CORS_HEADERS);
     return json({ ok: true }, 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Status update proxy error:', err);
+    console.log('Status update error:', err);
     return json({ ok: false, error: 'Failed to update status' }, 502, CORS_HEADERS);
   }
 }
 
-// แก้ไขรายละเอียดออเดอร์ (ชื่อ/เบอร์/ที่อยู่/วันที่จัดส่ง/รายการ/ยอดรวม/หมายเหตุ) — เหมือน
-// update-status ทุกอย่างแค่ forward field เพิ่ม ไม่ต้องมี ADMIN_KEY เพราะ Worker เช็ค PIN
-// token (verifyAuthHeader) ให้ก่อนแล้ว เป็นความเสี่ยงระดับเดียวกับ update-status
+// แก้ไขรายละเอียดออเดอร์ (ชื่อ/เบอร์/ที่อยู่/วันที่จัดส่ง/รายการ/ยอดรวม/หมายเหตุ) — ต้องผ่าน PIN token
 async function handleAdminUpdateOrder(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   let body;
   try {
@@ -416,63 +323,46 @@ async function handleAdminUpdateOrder(request, env) {
   }
   if (!body.id && !body.row) return json({ error: 'Missing id/row' }, 400, CORS_HEADERS);
 
-  // row เป็น fallback สำหรับแถวเก่าที่ยังไม่มี id (เหมือน update-status) — ไม่ใช่ทุกออเดอร์เก่า
-  // จะมี id ครบ ถ้าบังคับ id อย่างเดียวปุ่มแก้ไขจะใช้ไม่ได้กับแถวพวกนั้นเลย
-  const payload = { action: 'update_order', row: body.row, id: body.id };
-  ['name', 'phone', 'address', 'date', 'items', 'total', 'note'].forEach(field => {
-    if (field in body) payload[field] = body[field];
-  });
-
   try {
-    const sheetsRes = await fetch(env.SHEETS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
-      redirect: 'follow',
-    });
-    const text = await sheetsRes.text();
-    if (!sheetsRes.ok) {
-      console.log('Sheets update_order rejected:', sheetsRes.status, text);
-      return json({ ok: false, error: 'Sheet rejected the update' }, 502, CORS_HEADERS);
-    }
+    const result = await larna.updateOrder(env.DB, body);
+    if (!result.ok) return json(result, 404, CORS_HEADERS);
     return json({ ok: true }, 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Order update proxy error:', err);
+    console.log('Order update error:', err);
     return json({ ok: false, error: 'Failed to update order' }, 502, CORS_HEADERS);
   }
 }
 
-// อ่านรายการต้นทุน/ค่าใช้จ่าย (หน้า accounting.html) — proxy JSON จาก Orders/Stock/Expenses
-// Apps Script ตัวเดียวกัน (SHEETS_URL) ด้วย action=expenses, แบบเดียวกับที่ stock.html ใช้
-// action=stock — เดิมมี EXPENSES_SHEET_URL แยกเป็นอีก secret ชี้ไป Apps Script อีกโปรเจกต์
-// ที่ไม่เคยตั้งค่าเลย ทำให้บันทึกรายจ่ายไม่ได้เลยตั้งแต่สร้างหน้านี้ขึ้นมา — รวมเข้ากับ
-// SHEETS_URL ตัวเดียวกันแทน ตัดโอกาสลืมตั้ง secret แยกแบบนี้อีก
+// อ่านรายการต้นทุน/ค่าใช้จ่าย (หน้า accounting.html)
 async function handleAdminExpenses(request, env, ctx) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    return await fetchSheetJson(request, ctx, env.SHEETS_URL + '?action=expenses', 'admin-expenses');
+    return json(await larna.listExpenses(env.DB), 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Expenses sheet proxy error:', err);
-    return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
+    console.log('Expenses read error:', err);
+    return json({ error: 'Failed to read expenses' }, 502, CORS_HEADERS);
   }
 }
 
-// อ่านยอดขายตู้จากแท็บ inbox ของสเปรดชีตเดียวกัน (หน้า machine-sales.html) — Ksher payment
-// gateway เป็นคนเติมข้อมูลแท็บนั้นเข้ามาเอง เราแค่อ่านออกมาแสดง ไม่มีเส้นทางเขียนคู่กัน
-// ต้องผ่าน PIN token เพราะเป็นข้อมูลยอดขาย/ธุรกรรมดิบ ไม่ใช่ตัวเลขสรุปสาธารณะ
+// ยอดขายตู้ (หน้า machine-sales.html) — อ่านจาก D1 เสมอ Ksher ยังเติมข้อมูลลงแท็บ inbox ของชีต
+// ปุ่มรีเฟรช (?fresh=1) จะดึงแถวใหม่จากชีตเข้า D1 ก่อนตอบ ส่วนปกติ cron คัดลอกให้ทุก 5 นาที
 async function handleAdminMachineSales(request, env, ctx) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    return await fetchSheetJson(request, ctx, env.SHEETS_URL + '?action=machine-sales', 'admin-machine-sales');
+    const url = new URL(request.url);
+    let syncedNow = null;
+    if (url.searchParams.has('fresh')) syncedNow = await larna.syncMachineSales(env);
+    const result = await larna.listMachineSales(env.DB);
+    return new Response(JSON.stringify(result), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'X-Larna-Sync': syncedNow ? (syncedNow.ok ? 'ok' : 'failed') : 'skipped' },
+    });
   } catch (err) {
-    console.log('Machine sales sheet proxy error:', err);
-    return json({ error: 'Failed to fetch sheet' }, 502, CORS_HEADERS);
+    console.log('Machine sales read error:', err);
+    return json({ error: 'Failed to read machine sales' }, 502, CORS_HEADERS);
   }
 }
 
@@ -480,7 +370,6 @@ async function handleAdminMachineSales(request, env, ctx) {
 // X-Widget-Token ให้ตรงกับ secret WIDGET_TOKEN เพราะ machine-sales.html เดิมมีแค่ raw ต้องผ่าน PIN
 // session เท่านั้น ?month=YYYY-M (M เป็นเลข 0-11) — ไม่ระบุ = เดือนปัจจุบัน
 async function handleWidgetDailySales(request, env, ctx) {
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   const token = request.headers.get('X-Widget-Token') || '';
   if (!env.WIDGET_TOKEN || !timingSafeEqual(token, env.WIDGET_TOKEN)) {
@@ -491,9 +380,8 @@ async function handleWidgetDailySales(request, env, ctx) {
     const url = new URL(request.url);
     const monthParam = url.searchParams.get('month');
 
-    const res = await fetchSheetJson(request, ctx, env.SHEETS_URL + '?action=machine-sales', 'widget-machine-sales');
-    const data = await res.json();
-    const rows = parseMachineSalesRows_(data.sales || []);
+    const sales = await larna.listMachineSales(env.DB);
+    const rows = parseMachineSalesRows_(sales.sales || []);
     const calendar = computeDailyCalendarCake_(rows, monthParam);
 
     return json(calendar, 200, CORS_HEADERS);
@@ -614,132 +502,132 @@ function thaiMonthYearLabel_(year, month) {
 }
 
 // เขียนรายการต้นทุน/ค่าใช้จ่าย (เพิ่ม/แก้ไข/ลบ) — ต้องผ่าน PIN token เพราะเป็นข้อมูลการเงินที่กระทบยอดกำไร
-// ต่างจาก update-status ที่ความเสี่ยงต่ำกว่า (แค่สถานะออเดอร์) — ที่นี่ให้ Worker เป็นตัวกลาง
-// ยืนยัน token ก่อนเสมอ แล้วค่อย forward ไป Apps Script แทน
 async function handleAdminExpenseWrite(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
-  let data;
+  let body;
   try {
-    data = await request.json();
+    body = await request.json();
   } catch {
     return json({ success: false, error: 'Invalid JSON' }, 400, CORS_HEADERS);
   }
 
-  const action = (data.action === 'update' || data.action === 'delete') ? data.action : 'add';
+  const action = (body.action === 'update' || body.action === 'delete') ? body.action : 'add';
 
   if (action === 'add') {
-    if (!data.id || !data.type || !data.category || !data.amount || !data.date) {
+    if (!body.id || !body.type || !body.category || !body.amount || !body.date) {
       return json({ success: false, error: 'Missing required fields' }, 400, CORS_HEADERS);
     }
-    if (data.type !== 'cogs' && data.type !== 'opex') {
+    if (body.type !== 'cogs' && body.type !== 'opex') {
       return json({ success: false, error: 'Invalid type' }, 400, CORS_HEADERS);
     }
-  } else if (!data.id) {
+  } else if (!body.id) {
     return json({ success: false, error: 'Missing id' }, 400, CORS_HEADERS);
   }
 
-  const sheetsAction = { add: 'expense_add', update: 'expense_update', delete: 'expense_delete' }[action];
-
   try {
-    const res = await fetch(env.SHEETS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ ...data, action: sheetsAction }),
-      redirect: 'follow',
-    });
-    const result = await res.json().catch(() => ({ success: res.ok }));
-    return json(result, result.success === false ? 502 : 200, CORS_HEADERS);
+    const result = action === 'add' ? await larna.addExpense(env.DB, body)
+      : action === 'update' ? await larna.updateExpense(env.DB, body)
+      : await larna.deleteExpense(env.DB, body);
+    return json(result, result.success === false ? 404 : 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Expense webhook error:', err);
+    console.log('Expense write error:', err);
     return json({ success: false, error: 'Failed to save expense' }, 502, CORS_HEADERS);
   }
 }
 
-// อ่านประวัติการปรับสต็อก (หน้า stock.html) — ต้องผ่าน PIN token เพราะ Apps Script
-// เจ้าของ endpoint นี้ต้องการ ADMIN_KEY ซึ่งเก็บไว้ที่ Worker เท่านั้น ไม่ส่งให้ client
-// รู้ค่าจริงเลย (ต่างจากตอนแรกที่ stock.html เก็บ ADMIN_KEY ไว้ในไฟล์ js ที่ push ขึ้น
-// public repo ได้ตรงๆ — ย้ายมาพร็อกซีผ่าน Worker แทนเพื่อไม่ให้ secret หลุดขึ้น GitHub)
+// ประวัติการปรับสต็อก (หน้า stock.html) — ต้องผ่าน PIN token
 async function handleAdminStockLog(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    const target = new URL(env.INVENTORY_API_URL);
-    target.searchParams.set('action', 'log');
-    target.searchParams.set('key', env.INVENTORY_ADMIN_KEY);
-    const res = await fetch(target.toString());
-    const text = await res.text();
-    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return json(await larna.getStockLog(env.DB), 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Stock log proxy error:', err);
-    return json({ error: 'Failed to fetch stock log' }, 502, CORS_HEADERS);
+    console.log('Stock log read error:', err);
+    return json({ error: 'Failed to read stock log' }, 502, CORS_HEADERS);
   }
 }
 
-// อ่านต้นทุนต่อหน่วยของสต็อก (คอลัมน์ "ต้นทุน" ในหน้า stock.html) — เหมือน handleAdminStockLog
-// แต่ดึง action=stockAdmin แทน เพราะ cost เป็นข้อมูลอ่อนไหวด้านมาร์จิ้น ต้องผ่าน ADMIN_KEY เท่านั้น
-// (action=stock ที่หน้าเว็บ public เรียกตรงได้ไม่ต้องมี key จะไม่มี cost ติดมาด้วยเลย)
+// สต็อกพร้อมต้นทุนต่อหน่วย (คอลัมน์ "ต้นทุน" ในหน้า stock.html) — ต้นทุนเป็นข้อมูลอ่อนไหวด้านมาร์จิ้น
+// จึงต้องผ่าน PIN token เท่านั้น (GET /api/stock สาธารณะไม่มีต้นทุน)
 async function handleAdminStockCost(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
   try {
-    const target = new URL(env.INVENTORY_API_URL);
-    target.searchParams.set('action', 'stockAdmin');
-    target.searchParams.set('key', env.INVENTORY_ADMIN_KEY);
-    const res = await fetch(target.toString());
-    const text = await res.text();
-    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    return json(await larna.getStock(env.DB, true), 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Stock cost proxy error:', err);
-    return json({ error: 'Failed to fetch stock cost' }, 502, CORS_HEADERS);
+    console.log('Stock cost read error:', err);
+    return json({ error: 'Failed to read stock cost' }, 502, CORS_HEADERS);
   }
 }
 
-// แก้ไขจำนวนสต็อก (ปุ่ม "บันทึก" ในหน้า stock.html) — client ส่งมาแค่ {action, id, newStock/delta, note}
-// ไม่มี key เลย, Worker เป็นคนแปะ INVENTORY_ADMIN_KEY จริงให้เองก่อน forward ไป Apps Script
+// แก้ไขจำนวนสต็อก (ปุ่ม "บันทึก" ในหน้า stock.html) — client ส่ง {action, id, newStock/delta, note}
 async function handleAdminStockUpdate(request, env) {
   const ok = await verifyAuthHeader(request, env);
   if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
 
-  let data;
+  let body;
   try {
-    data = await request.json();
+    body = await request.json();
   } catch {
     return json({ error: 'Invalid JSON' }, 400, CORS_HEADERS);
   }
 
   try {
-    const res = await fetch(env.INVENTORY_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ ...data, key: env.INVENTORY_ADMIN_KEY }),
-      redirect: 'follow',
-    });
-    const text = await res.text();
-    return new Response(text, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+    const result = body.action === 'adjustStock'
+      ? await larna.adjustStock(env.DB, { id: body.id, delta: body.delta, note: body.note })
+      : body.action === 'setStock'
+        ? await larna.setStock(env.DB, { id: body.id, newStock: body.newStock, note: body.note, cost: body.cost, name: body.name })
+        : { error: 'unknown action' };
+    return json(result, 200, CORS_HEADERS);
   } catch (err) {
-    console.log('Stock update proxy error:', err);
+    console.log('Stock update error:', err);
     return json({ error: 'Failed to update stock' }, 502, CORS_HEADERS);
   }
 }
 
-// ไม่ต้อง auth เพราะ action=stock ไม่มีข้อมูลอ่อนไหว (ไม่มีต้นทุน/ยอดขาย) เหมือนที่
-// stock.html เรียก Apps Script ตรงๆ ได้อยู่แล้วโดยไม่ต้องมี key
+// สต็อกสำหรับหน้าร้าน (ไม่มีต้นทุน/ยอดขาย ไม่ต้อง auth) — แคชที่ edge ไว้สั้นๆ เพราะทุกคนที่เปิดหน้าเว็บเรียกอันนี้
 async function handlePublicStock(request, env, ctx) {
-  if (!env.INVENTORY_API_URL) return json({ error: 'Not configured' }, 500, CORS_HEADERS);
+  const url = new URL(request.url);
+  const forceFresh = url.searchParams.has('fresh');
+  const cache = caches.default;
+  const cacheKey = new Request('https://larna-cache.local/public-stock', { method: 'GET' });
+
+  if (!forceFresh) {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return new Response(cached.body, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'X-Larna-Cache': 'HIT' } });
+    }
+  }
 
   try {
-    return await fetchSheetJson(request, ctx, env.INVENTORY_API_URL + '?action=stock', 'public-stock');
+    const body = JSON.stringify(await larna.getStock(env.DB, false));
+    if (ctx) {
+      ctx.waitUntil(cache.put(cacheKey, new Response(body, {
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': `public, max-age=${PUBLIC_STOCK_CACHE_TTL_SECONDS}` },
+      })));
+    }
+    return new Response(body, { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'X-Larna-Cache': forceFresh ? 'BYPASS' : 'MISS' } });
   } catch (err) {
-    console.log('Public stock proxy error:', err);
-    return json({ error: 'Failed to fetch stock' }, 502, CORS_HEADERS);
+    console.log('Public stock read error:', err);
+    return json({ error: 'Failed to read stock' }, 502, CORS_HEADERS);
+  }
+}
+
+// นำเข้าข้อมูลจากชีตเดิมเข้า D1 (ใช้ครั้งเดียวตอนย้ายระบบ) — ป้องกันด้วย secret MIGRATE_TOKEN ที่ตั้งชั่วคราว
+// ทำซ้ำได้อย่างปลอดภัย (ออเดอร์/รายจ่ายจับคู่ด้วย id, สต็อกด้วยรหัสสินค้า, log นำเข้าเฉพาะตอนยังว่าง)
+async function handleMigrate(request, env) {
+  const token = request.headers.get('X-Migrate-Token') || '';
+  if (!env.MIGRATE_TOKEN || !timingSafeEqual(token, env.MIGRATE_TOKEN)) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+  if (!env.SHEETS_URL || !env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'sheet secrets missing' }, 500, CORS_HEADERS);
+  try {
+    return json({ ok: true, report: await larna.importFromSheet(env) }, 200, CORS_HEADERS);
+  } catch (err) {
+    console.log('Migrate error:', err);
+    return json({ ok: false, error: String(err && err.message || err) }, 500, CORS_HEADERS);
   }
 }
 
@@ -864,37 +752,10 @@ async function handleIncomingText(event, env) {
   ]);
 }
 
-// ประวัติลูกค้า group ตามชื่อจากชีต Orders เดิม (ตรรกะเดียวกับ dashboard.html ใช้แสดงผล) — ใช้ล่าสุด
-// ต่อคนมาเป็นเบอร์/ที่อยู่ default ให้ Gemini เดา ถ้าแอดมินพิมพ์แค่ชื่อลูกค้าเก่าไม่ครบทุกฟิลด์
+// ประวัติลูกค้า group ตามชื่อจากออเดอร์เดิม — ใช้ล่าสุดต่อคนมาเป็นเบอร์/ที่อยู่ default ให้ Gemini เดา
+// ถ้าแอดมินพิมพ์แค่ชื่อลูกค้าเก่าไม่ครบทุกฟิลด์
 async function getCustomerHistory(env) {
-  if (!env.SHEETS_URL) return [];
-  const res = await fetch(env.SHEETS_URL);
-  const data = await res.json();
-  const orders = Array.isArray(data.orders) ? data.orders : [];
-
-  // Google Sheets คืนค่าเซลล์ที่หน้าตาเป็นตัวเลขล้วน (เบอร์โทร/ชื่อที่เป็นตัวเลข) เป็น JS number
-  // ไม่ใช่ string เสมอไป — ถ้าไม่แปลงให้เป็น string ตรงนี้ก่อน โค้ดข้างล่าง (เช่น prefilterCustomers
-  // ที่เรียก .slice()/.split() บนค่าพวกนี้) จะพังด้วย TypeError ทันทีที่เจอลูกค้าที่มีเบอร์แบบนี้
-  const map = new Map();
-  orders.forEach(o => {
-    const name = String(o.name || '').trim();
-    if (!name) return;
-    if (!map.has(name)) map.set(name, []);
-    map.get(name).push({ ...o, name, phone: String(o.phone || ''), address: String(o.address || '') });
-  });
-
-  return Array.from(map.values()).map(list => {
-    // เรียงตาม timestamp ล่าสุดก่อน — timestamp จากชีตอาจเป็น string วันที่ไทยหรือ ISO ก็ได้
-    // แค่ต้องการลำดับคร่าวๆ พอ ไม่ต้อง parse ให้แม่นเป๊ะเหมือนจุดอื่น
-    list.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
-    const latest = list[0];
-    return {
-      name: latest.name,
-      phone: latest.phone,
-      address: latest.address,
-      orderCount: list.length,
-    };
-  });
+  return larna.customerHistory(env.DB);
 }
 
 // เลือกเฉพาะลูกค้าที่มีแนวโน้มเกี่ยวข้องกับข้อความนี้ (ชื่อ/เบอร์ปรากฏในข้อความ) ส่งให้ Gemini
@@ -1018,30 +879,14 @@ async function parseOrderFromMessage(text, customers, env) {
   };
 }
 
-// บันทึกออเดอร์ลงชีตเดียวกับที่ order.html ใช้ (POST ตรงไป SHEETS_URL) — ส่ง id ของเราเองไปด้วย
-// ต่างจาก order.html ปกติที่ไม่ส่ง id (ให้ Apps Script generate เอง) เพื่อให้รู้ id ทันทีสำหรับปุ่มยกเลิก
+// บันทึกออเดอร์จากบอท (ส่ง id ของเราเองไปด้วย เพื่อให้รู้ id ทันทีสำหรับปุ่มยกเลิก)
 async function saveOrderToSheet(env, order) {
-  if (!env.SHEETS_URL) throw new Error('SHEETS_URL not configured');
-  await fetch(env.SHEETS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(order),
-    redirect: 'follow',
-  });
+  await larna.createOrder(env.DB, order);
 }
 
 async function cancelOrderInSheet(env, id) {
-  if (!env.SHEETS_URL) throw new Error('SHEETS_URL not configured');
-  const res = await fetch(env.SHEETS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ action: 'update_status', id, status: 'ยกเลิก' }),
-    redirect: 'follow',
-  });
-  const text = await res.text();
-  let result;
-  try { result = JSON.parse(text); } catch { result = { ok: res.ok }; }
-  if (!result.ok) throw new Error('Sheet rejected the cancel: ' + text);
+  const result = await larna.updateOrderStatus(env.DB, { id, status: 'ยกเลิก' });
+  if (!result.ok) throw new Error('Cancel rejected: ' + (result.error || 'unknown'));
 
   // สถานะเปลี่ยนสำเร็จแล้ว — คืนสต็อกกลับด้วย (แค่เส้นทางยกเลิกผ่านปุ่มไลน์นี้เท่านั้น ยังไม่ครอบคลุม
   // การเปลี่ยนสถานะเป็น "ยกเลิก" จากแดชบอร์ด) ไม่ทำให้การยกเลิกล้มเหลวถ้าคืนสต็อกไม่สำเร็จ เพราะสถานะ
@@ -1053,14 +898,9 @@ async function cancelOrderInSheet(env, id) {
   }
 }
 
-// หา order ตัวนี้จากชีตอีกทีเพื่อรู้ว่ามีสินค้าอะไรบ้าง (การเรียก update_status ด้านบนไม่ได้ส่ง
-// items ของออเดอร์นั้นกลับมาให้ ต้องไป GET รายการทั้งหมดมาหาเอาเอง)
+// หาออเดอร์นี้เพื่อรู้ว่ามีสินค้าอะไรบ้างแล้วคืนสต็อกให้
 async function restoreStockForCancelledOrder(env, id) {
-  if (!env.SHEETS_URL) return;
-  const res = await fetch(env.SHEETS_URL);
-  const data = await res.json();
-  const orders = Array.isArray(data.orders) ? data.orders : [];
-  const order = orders.find(o => String(o.id) === String(id));
+  const order = await larna.getOrderById(env.DB, id);
   if (!order) return;
 
   const items = parseItemsStringToProducts(order.items);

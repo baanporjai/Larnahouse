@@ -1,0 +1,14 @@
+{
+  // Worker "larnaapi" (account yai.taweewoot@gmail.com). Secrets (LINE, PIN, Gemini, SHEETS_URL ...) live in the
+  // dashboard / `wrangler secret put` and are kept across deploys.
+  "name": "larnaapi",
+  "main": "cloudflare-worker.js",
+  "compatibility_date": "2026-09-18",
+  "account_id": "255a202b8017897ece0d1e9cd615ca11",
+  "keep_vars": true,
+  "d1_databases": [
+    { "binding": "DB", "database_name": "larnacake", "database_id": "1ca7d0ab-cfd1-45fb-aa45-0d6cf30d7bf7", "migrations_dir": "migrations" }
+  ],
+  // copies new kiosk sales (Ksher still writes them into the Google Sheet) into D1
+  "triggers": { "crons": ["*/5 * * * *"] }
+}

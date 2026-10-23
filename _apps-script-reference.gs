@@ -1,3 +1,6 @@
+// NOTE (23/10/2569): orders, stock, stock log and expenses moved to Cloudflare D1 (see larna-data.js). This Apps Script is
+// now only read for the "inbox" tab (kiosk sales that Ksher writes) via action=machine-sales. The rest is kept as the
+// record of how the old system worked.
 // Reference copy of the Larna order sheet's Google Apps Script — NOT deployed
 // from here. This file exists only so the code is versioned somewhere; paste
 // it into the Sheet's actual Extensions > Apps Script editor to deploy it.
