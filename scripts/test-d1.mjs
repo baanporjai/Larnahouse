@@ -69,7 +69,7 @@ const asyncify = (d) => ({
 const D1 = asyncify(db);
 const env = {
   DB: D1, SHEETS_URL: "https://sheet.test/exec", INVENTORY_API_URL: "https://sheet.test/exec", INVENTORY_ADMIN_KEY: "k",
-  ADMIN_PIN: "123456", SESSION_SECRET: "test-secret-test-secret-test-secret", MIGRATE_TOKEN: "mig-token-1234567890",
+  ADMIN_PIN: "123456", SESSION_SECRET: "test-secret-test-secret-test-secret",
   LINE_CHANNEL_ACCESS_TOKEN: "t", LINE_TARGET_ID: "u",
 };
 const ctx = { waitUntil() {} };
@@ -77,11 +77,8 @@ const call = (path, init = {}) => worker.fetch(new Request("https://larnaapi.tes
 
 // ---------------------------------------------------------------- import + parity with the sheet
 let r = await call("/api/migrate/from-sheets", { method: "POST" });
-ok(r.status === 401, "migrate refuses without the token");
-r = await call("/api/migrate/from-sheets", { method: "POST", headers: { "X-Migrate-Token": "wrong" } });
-ok(r.status === 401, "migrate refuses a wrong token");
-r = await call("/api/migrate/from-sheets", { method: "POST", headers: { "X-Migrate-Token": env.MIGRATE_TOKEN } });
-const rep = (await r.json()).report;
+ok(r.status !== 200, "the import is not reachable over HTTP any more");
+const rep = await larna.importFromSheet(env);
 ok(rep.orders.sheet === sheetOrders.length && rep.orders.inD1 === sheetOrders.length, "all orders imported " + JSON.stringify(rep.orders));
 ok(rep.stock.inD1 === sheetStock.length, "all stock rows imported");
 ok(rep.stockLog.inD1 === 2, "stock log imported");
@@ -130,7 +127,7 @@ ok(adm.products.every((p) => typeof p.cost === "number"), "admin stock includes 
 ok((await call("/api/stock")).headers.get("X-Larna-Cache") === "HIT", "public stock is edge-cached after the first read");
 
 // ---------------------------------------------------------------- import twice does not duplicate
-await call("/api/migrate/from-sheets", { method: "POST", headers: { "X-Migrate-Token": env.MIGRATE_TOKEN } });
+await larna.importFromSheet(env);
 const cnt = (t) => db.raw.prepare(`select count(*) n from ${t}`).get().n;
 ok(cnt("orders") === sheetOrders.length && cnt("expenses") === sheetExpenses.length && cnt("stock_log") === 2 && cnt("machine_sales") === sheetSales.length, "a second import adds nothing");
 

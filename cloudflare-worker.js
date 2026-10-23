@@ -12,7 +12,6 @@
  *                                LINE Messaging API channel
  *   LINE_TARGET_ID             — userId or groupId that should receive
  *                                the order notification
- *   MIGRATE_TOKEN              — (ชั่วคราว) ใช้กับ POST /api/migrate/from-sheets ครั้งเดียวตอนย้ายข้อมูล แล้วลบทิ้ง
  *   SHEETS_URL                 — Apps Script Web App URL, see _apps-script-reference.gs.
  *                                One Apps Script project serves Orders, Stock, Log,
  *                                Expenses (accounting.html), and inbox
@@ -42,7 +41,7 @@
  *
  * Data lives in Cloudflare D1 (binding DB, schema in migrations/, code in larna-data.js). The old Google Sheet is
  * only read for (1) kiosk sales that Ksher still writes into its "inbox" tab — copied into D1 every 5 minutes —
- * and (2) the one-off POST /api/migrate/from-sheets import.
+ * and (2) importFromSheet() in larna-data.js, the one-off import that was run on 23/10/2569 (kept for the tests).
  *
  * See LINE-ORDER-BACKEND-SETUP.md for full setup steps.
  */
@@ -95,10 +94,6 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS_HEADERS });
-    }
-
-    if (request.method === 'POST' && url.pathname === '/api/migrate/from-sheets') {
-      return handleMigrate(request, env);
     }
 
     if (request.method === 'POST' && url.pathname === '/api/order') {
@@ -614,20 +609,6 @@ async function handlePublicStock(request, env, ctx) {
   } catch (err) {
     console.log('Public stock read error:', err);
     return json({ error: 'Failed to read stock' }, 502, CORS_HEADERS);
-  }
-}
-
-// นำเข้าข้อมูลจากชีตเดิมเข้า D1 (ใช้ครั้งเดียวตอนย้ายระบบ) — ป้องกันด้วย secret MIGRATE_TOKEN ที่ตั้งชั่วคราว
-// ทำซ้ำได้อย่างปลอดภัย (ออเดอร์/รายจ่ายจับคู่ด้วย id, สต็อกด้วยรหัสสินค้า, log นำเข้าเฉพาะตอนยังว่าง)
-async function handleMigrate(request, env) {
-  const token = request.headers.get('X-Migrate-Token') || '';
-  if (!env.MIGRATE_TOKEN || !timingSafeEqual(token, env.MIGRATE_TOKEN)) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
-  if (!env.SHEETS_URL || !env.INVENTORY_API_URL || !env.INVENTORY_ADMIN_KEY) return json({ error: 'sheet secrets missing' }, 500, CORS_HEADERS);
-  try {
-    return json({ ok: true, report: await larna.importFromSheet(env) }, 200, CORS_HEADERS);
-  } catch (err) {
-    console.log('Migrate error:', err);
-    return json({ ok: false, error: String(err && err.message || err) }, 500, CORS_HEADERS);
   }
 }
 
