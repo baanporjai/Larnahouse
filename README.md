@@ -18,7 +18,7 @@ LarnaCake/
 ├── cloudflare-worker.js          Cloudflare Worker (larnaapi): API ทั้งหมด + รับออเดอร์ → แจ้งเตือนผ่าน LINE
 ├── larna-data.js                 ชั้นข้อมูลบน Cloudflare D1 (ออเดอร์ สต็อก log รายจ่าย ยอดขายตู้)
 ├── migrations/                   schema ของ D1 (wrangler d1 migrations apply larnacake --remote)
-├── wrangler.jsonc                config ของ Worker larnaapi (D1 binding + cron 5 นาที)
+├── wrangler.larnaapi.jsonc       config ของ Worker larnaapi (ตั้งชื่อนี้โดยตั้งใจ ห้ามใช้ wrangler.jsonc เพราะ Workers Builds ของ larnahouse จะหยิบไป deploy ทับเว็บ) (D1 binding + cron 5 นาที)
 ├── scripts/test-d1.mjs           ทดสอบชั้นข้อมูล/เส้นทาง Worker แบบออฟไลน์ (node --no-warnings scripts/test-d1.mjs)
 └── LINE-ORDER-BACKEND-SETUP.md   คู่มือตั้งค่า LINE Messaging API + Cloudflare Worker
 ```
@@ -41,4 +41,4 @@ npx.cmd serve -p 3301 .
 
 - **ยอดขายตู้ (Ksher)**: Ksher ยังเติมแท็บ `inbox` ของ Google Sheet อยู่ Worker คัดลอกแถวใหม่/ที่เปลี่ยนเข้า D1 ทุก 5 นาที (cron) และเมื่อกดรีเฟรชในหน้า machine-sales.html (`?fresh=1`) — หน้าเว็บอ่านจาก D1 เสมอ ถ้าชีตล่ม หน้ายังเปิดได้ด้วยข้อมูลล่าสุดที่คัดลอกไว้
 - Google Sheet/Apps Script (`_apps-script-reference.gs`) เก็บไว้เป็นต้นทางของยอดขายตู้และเป็นข้อมูลสำรองก่อนย้าย ออเดอร์/สต็อก/รายจ่ายใหม่ไม่ถูกเขียนลงชีตอีกต่อไป
-- deploy Worker: `npx wrangler deploy` (ตั้ง `CLOUDFLARE_ACCOUNT_ID=255a202b8017897ece0d1e9cd615ca11`)
+- deploy Worker: `npx wrangler deploy --config wrangler.larnaapi.jsonc` (ตั้ง `CLOUDFLARE_ACCOUNT_ID=255a202b8017897ece0d1e9cd615ca11`)

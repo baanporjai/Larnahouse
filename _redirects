@@ -7,7 +7,7 @@
 # server-side files that live in this repo but must not be served as website files
 /cloudflare-worker.js        /not-found 404
 /larna-data.js               /not-found 404
-/wrangler.jsonc              /not-found 404
+/wrangler.larnaapi.jsonc      /not-found 404
 /_apps-script-reference.gs   /not-found 404
 /migrations/*                /not-found 404
 /scripts/*                   /not-found 404
