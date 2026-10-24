@@ -135,7 +135,7 @@
       </div>
     </div>
     <div class="hero-img-wrap">
-      <img src="images/larnacake_illus.png" alt="Frozen Larna Cake">
+      <iframe src="/machine-viewer/?embed=1" title="LarnaCake 3D vending machine" allow="autoplay" loading="eager" style="display:block;width:100%;height:620px;max-height:75svh;min-height:400px;border:0;background:transparent;"></iframe>
     </div>
   </div>
 </section>
@@ -311,6 +311,18 @@
         <div class="who" data-i18n="review3_who">Pop · Silom</div>
       </div>
     </div>
+
+    <div class="review-video">
+      <div class="review-video-text">
+        <div class="eyebrow" data-i18n="reviewvid_eyebrow">Video review</div>
+        <h3 data-i18n="reviewvid_title">Watch someone try the machine</h3>
+        <p data-i18n="reviewvid_p">Kongpob Sor Review tries the cake vending machine on the 4th floor of Central Chiang Mai and shows how it works.</p>
+        <a href="https://www.facebook.com/reel/1677805837326882/?t=106" target="_blank" rel="noopener noreferrer" class="btn btn-outline" data-i18n="reviewvid_cta">Watch on Facebook</a>
+      </div>
+      <div class="review-video-frame">
+        <iframe src="https://www.facebook.com/plugins/video.php?href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1677805837326882%2F&show_text=false&width=320&t=106" title="Kongpob Sor Review — Larna Cake vending machine" width="320" height="568" loading="lazy" style="border:0;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -330,7 +342,7 @@
         <p style="color:#cdbba9;font-size:13px;margin-top:16px;" data-i18n="vending_ic2note">Supports PromptPay, TrueMoney, Alipay, WeChat Pay — no cash or coins accepted.</p>
       </div>
       <div style="text-align:center;">
-        <img src="https://ik.imagekit.io/p3u6ogh1n/larnahouse/tr:w-1000,f-webp,quality-100/carousel-section/6c03ea5a-162e-4c46-bbb6-fa212aaaeebd.jpeg" alt="Vending" style="border-radius:20px;margin-bottom:20px;">
+        <iframe src="/machine-viewer/?embed=1" title="LarnaCake 3D vending machine" allow="autoplay" loading="lazy" style="display:block;width:100%;height:560px;border:0;background:transparent;margin-bottom:20px;"></iframe>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
           <a href="https://www.google.com/maps/search/?api=1&query=Central+Festival+Chiang+Mai" target="_blank" rel="noopener noreferrer" class="btn btn-line" data-i18n="vending_btn">Navigate to the Machine</a>
           <a href="https://lin.ee/Qlxm0tW" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="border-color:#fff;color:#fff;" data-i18n="vending_btn2">Ask Us a Question</a>
@@ -425,6 +437,23 @@
 
 <script src="js/products.js"></script>
 <script src="js/i18n.js"></script>
+<script>
+// translations for the video-review block below (kept here so this page does not depend on a js/i18n.js redeploy)
+Object.assign(I18N, {
+  reviewvid_eyebrow: { th: "วิดีโอรีวิว", en: "Video review", zh: "视频评测", ko: "영상 리뷰" },
+  reviewvid_title:   { th: "ดูรีวิวการกดตู้จริง", en: "Watch someone try the machine", zh: "看看别人怎么使用售货机", ko: "실제로 자판기를 써 보는 영상" },
+  reviewvid_p:       { th: "เพจก้องภพเซาะรีวิว ไปลองกดตู้น้ำส้มคั้นสด O'Fresh และตู้เค้กลาร์นา ที่ชั้น 4 เซ็นทรัล เชียงใหม่ ดูว่ากดยังไง และได้ของออกมาเป็นอย่างไร", en: "Kongpob Sor Review tries the O'Fresh fresh-orange-juice machine and the Larna Cake machine on the 4th floor of Central Chiang Mai, and shows how they work.", zh: "Kongpob Sor Review 在清迈中央广场 4 楼试用 O'Fresh 鲜榨橙汁机和 Larna 蛋糕售货机，展示操作方法。", ko: "Kongpob Sor Review가 치앙마이 센트럴 4층의 O'Fresh 생오렌지주스 자판기와 라르나 케이크 자판기를 직접 사용해 보고 이용 방법을 보여 줍니다." },
+  reviewvid_cta:     { th: "ดูบน Facebook", en: "Watch on Facebook", zh: "在 Facebook 观看", ko: "Facebook에서 보기" },
+});
+</script>
+<style>
+.review-video{display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center;max-width:860px;margin:56px auto 0;background:#fff;border-radius:var(--radius);padding:32px;box-shadow:var(--shadow-sm);}
+.review-video h3{margin:6px 0 10px;}
+.review-video p{color:var(--text);margin-bottom:18px;}
+.review-video-frame{width:320px;max-width:100%;aspect-ratio:320/568;border-radius:16px;overflow:hidden;background:#111;}
+.review-video-frame iframe{display:block;width:100%;height:100%;}
+@media(max-width:900px){.review-video{grid-template-columns:1fr;padding:22px;gap:24px;justify-items:center;text-align:center;}}
+</style>
 <script src="js/inventory-config.js"></script>
 <script src="js/inventory.js"></script>
 <script>
