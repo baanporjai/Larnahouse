@@ -256,7 +256,9 @@ export async function listMachineSales(db) {
   const rows = await db.prepare(
     `SELECT ${SALE_FIELDS.join(', ')} FROM machine_sales WHERE transactiondate >= ? OR transactiondate IS NULL OR transactiondate = '' ORDER BY transactiondate, seq`,
   ).bind(cutoff).all();
-  return { sales: rows.results };
+  // last few .xlsx uploads, for the history under the upload box on machine-sales.html
+  const up = await db.prepare('SELECT id, ts, filename, rows_read, bills, added, changed, unchanged, date_from, date_to FROM machine_sales_uploads ORDER BY id DESC LIMIT 5').all();
+  return { sales: rows.results, uploads: up.results };
 }
 
 /** Reads the sheet's inbox tab through the Apps Script and upserts only the rows that are new or changed. */
@@ -282,6 +284,8 @@ export async function syncMachineSales(env) {
   const have = await db.prepare('SELECT txn_id, line_no, row_hash FROM machine_sales').all();
   for (const r of have.results) existing.set(`${r.txn_id}\u0000${r.line_no}`, r.row_hash);
   let seq = (await db.prepare('SELECT COALESCE(MAX(seq), 0) AS m FROM machine_sales').first()).m;
+  // bills that came from an uploaded .xlsx are the owner's correction — the sheet must not overwrite them
+  const locked = new Set((await db.prepare("SELECT DISTINCT txn_id FROM machine_sales WHERE src = 'upload'").all()).results.map((r) => r.txn_id));
 
   const lineCounter = new Map();
   const stmts = [];
@@ -289,6 +293,7 @@ export async function syncMachineSales(env) {
   for (const s of sales) {
     const txn = text(s.transactionid) || `d:${text(s.transactiondate)}`;
     if (!text(s.transactionid) && !text(s.transactiondate)) continue; // blank row at the end of the sheet
+    if (locked.has(txn)) continue; // uploaded bill: the upload wins over the sheet
     const line = lineCounter.get(txn) ?? 0;
     lineCounter.set(txn, line + 1);
     const values = SALE_FIELDS.map((f) => (s[f] === undefined ? null : s[f]));
@@ -373,4 +378,176 @@ export async function importFromSheet(env) {
   report.machineSales = await syncMachineSales(env);
   report.machineSalesInD1 = (await db.prepare('SELECT COUNT(*) n FROM machine_sales').first()).n;
   return report;
+}
+
+// ---------------------------------------------------------------- upload of Ksher's .xlsx export (machine-sales.html)
+// The page parses the file in the browser and posts the rows as objects keyed by the file's own headers
+// ("Transaction Date", "Transaction ID", ...). This side re-validates everything, compares it bill by bill with what
+// D1 already has, and (only when confirm=true) writes the bills that are new or different.
+// The unit is the bill (Transaction ID): a changed bill is replaced as a whole, so lines never end up duplicated.
+export const UPLOAD_MAX_ROWS = 6000;
+const UPLOAD_REQUIRED = ['transactiondate', 'transactionid', 'productname', 'grandtotal', 'status'];
+const UPLOAD_LABELS = { transactiondate: 'Transaction Date', transactionid: 'Transaction ID', productname: 'Product Name', grandtotal: 'Grand Total', status: 'Status' };
+const headerKey = (h) => String(h ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const pad2 = (n) => String(n).padStart(2, '0');
+
+function isoFromParts(y, mo, d, h, mi, s) {
+  const t = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== mo - 1 || t.getUTCDate() !== d || h > 23 || mi > 59 || s > 59 || y < 2020 || y > 2100) return null;
+  return `${y}-${pad2(mo)}-${pad2(d)} ${pad2(h)}:${pad2(mi)}:${pad2(s)}`;
+}
+
+/** "24/10/2026 12:41:38" (Ksher), "2026-10-24 12:41:38" (what D1 stores), an Excel serial number -> "2026-10-24 12:41:38", or null */
+export function canonicalSaleDate(v) {
+  if (typeof v === 'number' && Number.isFinite(v) && v > 40000 && v < 80000) {
+    const t = new Date(Math.round((v - 25569) * 86400) * 1000); // Excel serial days -> wall-clock time, no time zone involved
+    return isoFromParts(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate(), t.getUTCHours(), t.getUTCMinutes(), t.getUTCSeconds());
+  }
+  const s = String(v ?? '').trim();
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})[T\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(s);
+  if (m) return isoFromParts(+m[1], +m[2], +m[3], +m[4], +m[5], +(m[6] || 0));
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(s);
+  if (m) return isoFromParts(+m[3] > 2400 ? +m[3] - 543 : +m[3], +m[2], +m[1], +m[4], +m[5], +(m[6] || 0));
+  return null;
+}
+
+function moneyValue(v, { allowBlank }) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v ?? '').replace(/[,\s฿]/g, '');
+  if (s === '') return allowBlank ? 0 : null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** raw rows (objects keyed by the file's headers) -> clean sale rows, plus what was ignored / wrong. Pure function. */
+export function normalizeUploadRows(rawRows) {
+  const present = new Set();
+  for (const r of rawRows.slice(0, 50)) for (const k of Object.keys(r || {})) present.add(headerKey(k));
+  const missingColumns = UPLOAD_REQUIRED.filter((k) => !present.has(k)).map((k) => UPLOAD_LABELS[k]);
+  const out = { rows: [], ignored: 0, errors: [], missingColumns };
+  if (missingColumns.length) return out;
+
+  rawRows.forEach((raw, i) => {
+    const at = i + 2; // row number in the sheet (row 1 is the header)
+    const g = {};
+    for (const [k, v] of Object.entries(raw || {})) g[headerKey(k)] = v;
+    const txn = text(g.transactionid).trim();
+    const hasAnything = SALE_FIELDS.some((f) => text(g[f]).trim() !== '');
+    // blank lines and the "TOTAL" footer row Ksher adds (no transaction id)
+    if (!hasAnything || (!txn && /^total$/i.test(text(g.transactiondate).trim()))) { out.ignored++; return; }
+    if (!txn) { out.errors.push(`แถว ${at}: ไม่มี Transaction ID`); return; }
+    const date = canonicalSaleDate(g.transactiondate);
+    if (!date) { out.errors.push(`แถว ${at}: วันที่ "${text(g.transactiondate).slice(0, 30)}" อ่านไม่ได้`); return; }
+    const subtotal = moneyValue(g.subtotal, { allowBlank: true });
+    const discount = moneyValue(g.discount, { allowBlank: true });
+    const grandtotal = moneyValue(g.grandtotal, { allowBlank: false });
+    if (grandtotal === null || subtotal === null || discount === null) { out.errors.push(`แถว ${at}: ตัวเลขยอดเงินไม่ถูกต้อง`); return; }
+    const f = { transactiondate: date, transactionid: txn, subtotal, discount, grandtotal };
+    for (const k of SALE_FIELDS) if (!(k in f)) f[k] = text(g[k]).trim();
+    if (!f.productname) { out.errors.push(`แถว ${at}: ไม่มีชื่อสินค้า`); return; }
+    out.rows.push({ at, f });
+  });
+  return out;
+}
+
+/** one comparable string per sale line, built the same way for file rows and D1 rows */
+function lineTuple(f) {
+  return SALE_FIELDS.map((k) => {
+    if (k === 'transactiondate') return canonicalSaleDate(f[k]) ?? text(f[k]).trim();
+    if (k === 'subtotal' || k === 'discount' || k === 'grandtotal') return String(Number(f[k]) || 0);
+    return text(f[k]).trim();
+  }).join('\u0001');
+}
+const billSummary = (lines) => ({
+  date: lines[0].transactiondate ? (canonicalSaleDate(lines[0].transactiondate) ?? text(lines[0].transactiondate)) : '',
+  items: lines.map((l) => text(l.productname)).join(', '),
+  lines: lines.length,
+  total: lines.reduce((s, l) => s + (Number(l.grandtotal) || 0), 0),
+  status: text(lines[0].status),
+});
+
+/**
+ * Compare an uploaded sales file with D1 and, when confirm is true, write the bills that are new or different.
+ * Returns the same summary for the preview (confirm false) and for the real import.
+ */
+export async function importMachineSalesUpload(db, { filename, rows, confirm }) {
+  const norm = normalizeUploadRows(rows);
+  if (norm.missingColumns.length) {
+    return { ok: false, error: `ไม่ใช่ไฟล์ยอดขายตู้จาก Ksher — ไม่พบคอลัมน์: ${norm.missingColumns.join(', ')}` };
+  }
+  if (norm.errors.length) {
+    return { ok: false, error: `ไฟล์มี ${norm.errors.length} แถวที่อ่านไม่ได้ จึงยังไม่นำเข้า`, errors: norm.errors.slice(0, 20) };
+  }
+  if (!norm.rows.length) return { ok: false, error: 'ไม่พบแถวยอดขายในไฟล์' };
+
+  // group the file's lines by bill, in file order
+  const bills = new Map();
+  for (const { f } of norm.rows) {
+    if (!bills.has(f.transactionid)) bills.set(f.transactionid, []);
+    bills.get(f.transactionid).push(f);
+  }
+  const dates = norm.rows.map((r) => r.f.transactiondate).sort();
+  const dateFrom = dates[0], dateTo = dates[dates.length - 1];
+
+  // what D1 already has for these bills (100 bound parameters per query is the D1 limit)
+  const ids = [...bills.keys()];
+  const have = new Map();
+  for (let i = 0; i < ids.length; i += 90) {
+    const chunk = ids.slice(i, i + 90);
+    const got = await db.prepare(`SELECT txn_id, line_no, ${SALE_FIELDS.join(', ')} FROM machine_sales WHERE txn_id IN (${chunk.map(() => '?').join(', ')}) ORDER BY txn_id, line_no`).bind(...chunk).all();
+    for (const r of got.results) { if (!have.has(r.txn_id)) have.set(r.txn_id, []); have.get(r.txn_id).push(r); }
+  }
+
+  const added = [], changed = [];
+  let unchanged = 0;
+  for (const [txn, lines] of bills) {
+    const old = have.get(txn);
+    if (!old) { added.push({ txn, lines }); continue; }
+    const a = lines.map(lineTuple).sort(), b = old.map(lineTuple).sort();
+    if (a.length === b.length && a.every((x, i) => x === b[i])) { unchanged++; continue; }
+    changed.push({ txn, lines, old });
+  }
+  const inRange = await db.prepare('SELECT COUNT(DISTINCT txn_id) AS n FROM machine_sales WHERE transactiondate >= ? AND transactiondate <= ?').bind(dateFrom, dateTo).first();
+  const missingFromFile = Math.max(0, (inRange?.n ?? 0) - ids.filter((t) => have.has(t)).length);
+
+  const sample = (x) => ({ txn: x.txn, after: billSummary(x.lines), ...(x.old ? { before: billSummary(x.old), fewerLines: x.lines.length < x.old.length } : {}) });
+  const summary = {
+    ok: true, dry: !confirm, filename: text(filename).slice(0, 200),
+    rowsRead: rows.length, rowsUsed: norm.rows.length, rowsIgnored: norm.ignored, bills: bills.size,
+    added: added.length, changed: changed.length, unchanged, missingFromFile,
+    fewerLines: changed.filter((c) => c.lines.length < c.old.length).length,
+    dateFrom, dateTo,
+    addedSample: added.slice(0, 8).map(sample), changedSample: changed.slice(0, 8).map(sample),
+  };
+  if (!confirm) return summary;
+
+  // ---- write: a new bill is inserted, a changed bill is replaced; everything written is marked src='upload'
+  let seq = (await db.prepare('SELECT COALESCE(MAX(seq), 0) AS m FROM machine_sales').first()).m;
+  const ins = `INSERT INTO machine_sales (txn_id, line_no, seq, ${SALE_FIELDS.join(', ')}, row_hash, src)
+       VALUES (?, ?, ?, ${SALE_FIELDS.map(() => '?').join(', ')}, ?, 'upload')
+       ON CONFLICT (txn_id, line_no) DO UPDATE SET ${SALE_FIELDS.map((f) => `${f} = excluded.${f}`).join(', ')}, row_hash = excluded.row_hash, src = 'upload'`;
+  const perBill = [];
+  for (const b of [...added, ...changed]) {
+    const stmts = [];
+    if (b.old) stmts.push(db.prepare('DELETE FROM machine_sales WHERE txn_id = ?').bind(b.txn));
+    b.lines.forEach((f, line) => {
+      seq++;
+      const values = SALE_FIELDS.map((k) => f[k]);
+      stmts.push(db.prepare(ins).bind(b.txn, line, seq, ...values, hashString(JSON.stringify(values))));
+    });
+    perBill.push(stmts);
+  }
+  // keep every bill's delete+insert inside one batch (at most 80 statements per batch)
+  let batch = [];
+  for (const stmts of perBill) {
+    if (batch.length && batch.length + stmts.length > 80) { await db.batch(batch); batch = []; }
+    batch.push(...stmts);
+  }
+  if (batch.length) await db.batch(batch);
+
+  const t = nowS();
+  const log = await db.prepare('INSERT INTO machine_sales_uploads (ts, filename, rows_read, bills, added, changed, unchanged, date_from, date_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(t, summary.filename, rows.length, bills.size, added.length, changed.length, unchanged, dateFrom, dateTo).run();
+  await db.prepare("INSERT INTO meta (key, value) VALUES ('machine_sales_uploaded_at', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").bind(String(t)).run();
+  return { ...summary, dry: false, uploadId: Number(log.meta.last_row_id) };
 }

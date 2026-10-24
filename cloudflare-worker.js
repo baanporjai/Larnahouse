@@ -128,6 +128,11 @@ export default {
       return handleAdminMachineSales(request, env, ctx);
     }
 
+    // อัปโหลดไฟล์ .xlsx ยอดขายตู้ที่ export จาก Ksher (กล่องอัปโหลดในหน้า machine-sales.html)
+    if (request.method === 'POST' && url.pathname === '/api/admin/machine-sales/upload') {
+      return handleAdminMachineSalesUpload(request, env);
+    }
+
     // ปฏิทินจำนวนชิ้นที่ขายได้รายวันสำหรับ Android home-screen widget — ต่างจาก
     // /api/admin/machine-sales ตรงที่นี่สรุปเป็นตัวเลขต่อวันแล้ว (ไม่ใช่ raw แถวธุรกรรม) และผ่าน
     // WIDGET_TOKEN แทน session/PIN เพราะ widget รีเฟรชพื้นหลังเอง ไม่มีคนกดล็อกอินซ้ำทุก 12 ชม.
@@ -358,6 +363,44 @@ async function handleAdminMachineSales(request, env, ctx) {
   } catch (err) {
     console.log('Machine sales read error:', err);
     return json({ error: 'Failed to read machine sales' }, 502, CORS_HEADERS);
+  }
+}
+
+// รับแถวจากไฟล์ .xlsx ที่เบราว์เซอร์อ่านแล้ว ({ filename, rows, confirm }) — confirm เป็น false = แค่ตรวจและสรุปให้ดูก่อน
+// (ไม่เขียนอะไร) true = เขียนบิลที่ใหม่/ต่างจากที่มีอยู่ลง D1 ตรวจสิทธิ์ด้วย PIN session เหมือนเอนด์พอยต์แอดมินอื่น
+async function handleAdminMachineSalesUpload(request, env) {
+  const ok = await verifyAuthHeader(request, env);
+  if (!ok) return json({ error: 'Unauthorized' }, 401, CORS_HEADERS);
+
+  if (Number(request.headers.get('content-length') || 0) > 8 * 1024 * 1024) {
+    return json({ ok: false, error: 'ไฟล์ใหญ่เกินไป (ไม่เกิน 6,000 แถว)' }, 413, CORS_HEADERS);
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ ok: false, error: 'Invalid JSON' }, 400, CORS_HEADERS);
+  }
+  if (!body || !Array.isArray(body.rows) || !body.rows.length) {
+    return json({ ok: false, error: 'ไม่พบแถวข้อมูลในไฟล์' }, 400, CORS_HEADERS);
+  }
+  if (body.rows.length > larna.UPLOAD_MAX_ROWS) {
+    return json({ ok: false, error: `ไฟล์มี ${body.rows.length} แถว เกินกำหนด ${larna.UPLOAD_MAX_ROWS} แถวต่อครั้ง กรุณาแบ่งไฟล์` }, 413, CORS_HEADERS);
+  }
+  if (!body.rows.every((r) => r && typeof r === 'object' && !Array.isArray(r))) {
+    return json({ ok: false, error: 'รูปแบบข้อมูลไม่ถูกต้อง' }, 400, CORS_HEADERS);
+  }
+
+  try {
+    const result = await larna.importMachineSalesUpload(env.DB, {
+      filename: body.filename,
+      rows: body.rows,
+      confirm: body.confirm === true,
+    });
+    return json(result, result.ok ? 200 : 422, CORS_HEADERS);
+  } catch (err) {
+    console.log('Machine sales upload error:', err);
+    return json({ ok: false, error: 'นำเข้าไม่สำเร็จ ลองใหม่อีกครั้ง' }, 502, CORS_HEADERS);
   }
 }
 

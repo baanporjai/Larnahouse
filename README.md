@@ -42,3 +42,12 @@ npx.cmd serve -p 3301 .
 - **ยอดขายตู้ (Ksher)**: Ksher ยังเติมแท็บ `inbox` ของ Google Sheet อยู่ Worker คัดลอกแถวใหม่/ที่เปลี่ยนเข้า D1 ทุก 5 นาที (cron) และเมื่อกดรีเฟรชในหน้า machine-sales.html (`?fresh=1`) — หน้าเว็บอ่านจาก D1 เสมอ ถ้าชีตล่ม หน้ายังเปิดได้ด้วยข้อมูลล่าสุดที่คัดลอกไว้
 - Google Sheet/Apps Script (`_apps-script-reference.gs`) เก็บไว้เป็นต้นทางของยอดขายตู้และเป็นข้อมูลสำรองก่อนย้าย ออเดอร์/สต็อก/รายจ่ายใหม่ไม่ถูกเขียนลงชีตอีกต่อไป
 - deploy Worker: `npx wrangler deploy --config wrangler.larnaapi.jsonc` (ตั้ง `CLOUDFLARE_ACCOUNT_ID=255a202b8017897ece0d1e9cd615ca11`)
+
+## อัปโหลดไฟล์ .xlsx ยอดขายตู้ (หน้า machine-sales.html)
+
+ปุ่ม **⬆ อัปโหลด .xlsx** ที่หัวหน้า → เลือก/ลากไฟล์ที่ดาวน์โหลดจาก Ksher (คอลัมน์ Transaction Date, Transaction ID, Ksher Order No, …, Product Name, Dispense Status, Sub Total, Discount, Grand Total; แถว TOTAL ท้ายไฟล์ถูกข้าม)
+
+- เบราว์เซอร์อ่านไฟล์ด้วย SheetJS แล้วส่งแถวไป `POST /api/admin/machine-sales/upload` (ต้องมี PIN token) — `confirm:false` = ตรวจและสรุปให้ดูก่อน ไม่เขียนอะไร, `confirm:true` = นำเข้าจริง
+- เทียบรายบิล (Transaction ID): บิลใหม่ = เพิ่ม · ตรงกับที่มีอยู่ = ไม่แตะ · ต่างกัน = แทนที่ทั้งบิล (ไม่ลบบิลที่ไม่อยู่ในไฟล์) ไฟล์ที่มีแถวอ่านไม่ได้ จะไม่นำเข้าเลย
+- บิลที่มาจากการอัปโหลดมี `machine_sales.src='upload'` — cron คัดลอกจากชีตทุก 5 นาทีจะไม่ทับบิลเหล่านั้น ประวัติอยู่ในตาราง `machine_sales_uploads`
+- migration `0002_machine_sales_upload.sql` · ทดสอบ: `node --no-warnings scripts/test-d1.mjs` และ `node --no-warnings scripts/e2e-upload.mjs` (เบราว์เซอร์ + ไฟล์ Ksher จริง)

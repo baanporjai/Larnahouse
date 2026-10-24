@@ -13,7 +13,7 @@ const ok = (c, msg) => { if (c) pass++; else { fail++; console.log("FAIL:", msg)
 // ---------------------------------------------------------------- D1 stand-in
 function makeDb() {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(fs.readFileSync(root + "migrations/0001_init.sql", "utf8"));
+  for (const f of fs.readdirSync(root + "migrations").filter((x) => x.endsWith(".sql")).sort()) sqlite.exec(fs.readFileSync(root + "migrations/" + f, "utf8"));
   class Stmt {
     constructor(sql) { this.sql = sql; this.v = []; }
     bind(...v) { const s = new Stmt(this.sql); s.v = v; return s; }
@@ -237,6 +237,125 @@ ok(hist.length > 0 && hist.every((h) => h.name && typeof h.orderCount === "numbe
   const maxSheetRow = Math.max(...sheetOrders.map((o) => o._row));
   ok(db2.raw.prepare("select row_no n from orders where id=?").get(id).n === maxSheetRow + 1, "…and numbers it after the sheet's last row");
   ok(db2.raw.prepare("select count(*) n from orders where row_no < 0").get().n === 0, "no parked rows left over");
+}
+
+// ---------------------------------------------------------------- .xlsx upload (Ksher export) — rows as the browser sends them
+{
+  const upload = (rows, extra = {}, tok = token) => call("/api/admin/machine-sales/upload", { method: "POST", headers: { Authorization: `Bearer ${tok}` }, body: JSON.stringify({ filename: "ksher-test.xlsx", rows, ...extra }) });
+  const mk = (txn, date, product, total, status = "paid", over = {}) => ({
+    "Transaction Date": date, "Transaction ID": txn, "Ksher Order No": "9" + txn, "Merchant ID": "mch50239", "KioskID": "larnacake01", "KioskName": "larnacake01",
+    "Payment Method": "Promptpay", "Coupon": "", "Promotion": "", "Cart Enable": "Yes", "Status": status, "Product Name": product, "Dispense Status": "success",
+    "Sub Total": total, "Discount": 0, "Grand Total": total, ...over,
+  });
+  const totalRow = { "Transaction Date": "TOTAL", "Transaction ID": "", "Ksher Order No": "", "Merchant ID": "", "KioskID": "", "KioskName": "", "Payment Method": "", "Coupon": "", "Promotion": "", "Cart Enable": "", "Status": "", "Product Name": "", "Dispense Status": "", "Sub Total": 180, "Discount": 0, "Grand Total": 180 };
+  const nSales = () => db.raw.prepare("select count(*) n from machine_sales").get().n;
+  const toKsherDate = (s) => { const c = larna.canonicalSaleDate(s); return c.slice(8, 10) + "/" + c.slice(5, 7) + "/" + c.slice(0, 4) + " " + c.slice(11); };
+
+  // date reading
+  ok(larna.canonicalSaleDate("24/10/2026 12:41:38") === "2026-10-24 12:41:38", "Ksher date text -> ISO");
+  ok(larna.canonicalSaleDate("2026-10-24 12:41:38") === "2026-10-24 12:41:38" && larna.canonicalSaleDate("2026-10-24T12:41") === "2026-10-24 12:41:00", "ISO date kept");
+  ok(larna.canonicalSaleDate("24/10/2569 12:41:38") === "2026-10-24 12:41:38", "พ.ศ. year is understood");
+  ok(larna.canonicalSaleDate(46319.5291550926) === "2026-10-24 12:41:59" || larna.canonicalSaleDate(46319.5291550926)?.startsWith("2026-10-24 12:4"), "Excel serial date -> wall-clock time " + larna.canonicalSaleDate(46319.5291550926));
+  ok(larna.canonicalSaleDate("31/02/2026 10:00:00") === null && larna.canonicalSaleDate("hello") === null && larna.canonicalSaleDate("24/10/2026") === null, "impossible / partial dates are refused");
+
+  // an existing multi-line paid bill, re-sent in Ksher's format -> nothing to do
+  const existing = db.raw.prepare("select txn_id from machine_sales where status='paid' group by txn_id having count(*)>=2 limit 1").get().txn_id;
+  const existingLines = db.raw.prepare("select * from machine_sales where txn_id=? order by line_no").all(existing);
+  const existingKsher = existingLines.map((s) => mk(existing, toKsherDate(s.transactiondate), s.productname, s.grandtotal, s.status, { "Ksher Order No": s.ksherorderno, "Merchant ID": s.merchantid, "Payment Method": s.paymentmethod, "Cart Enable": s.cartenable, "Sub Total": s.subtotal, "Discount": s.discount, "KioskID": s.kioskid, "KioskName": s.kioskname, "Coupon": s.coupon, "Promotion": s.promotion }));
+  const fresh = [
+    mk("up-new-1", "24/10/2026 09:00:00", "มินิ ลาร์นา เค้ก (ออริจินัล)", 60),
+    mk("up-new-2", "24/10/2026 09:30:10", "คุกกี้ดูไบ ลาร์นา ไส้พิสตาชิโอ", 80),
+    mk("up-new-2", "24/10/2026 09:30:10", "คุกกี้ดูไบ ลาร์นา ไส้พิสตาชิโอ", 80),
+  ];
+  const file1 = [...fresh, ...existingKsher, totalRow];
+
+  const before1 = nSales();
+  r = await upload(file1);
+  let u = await r.json();
+  ok(r.status === 200 && u.ok && u.dry === true, "preview answers 200 " + JSON.stringify(u).slice(0, 200));
+  ok(u.bills === 3 && u.added === 2 && u.changed === 0 && u.unchanged === 1 && u.rowsIgnored === 1 && u.rowsUsed === file1.length - 1, "preview counts: 2 new, 1 already there, TOTAL row ignored " + JSON.stringify({ b: u.bills, a: u.added, c: u.changed, un: u.unchanged, ig: u.rowsIgnored }));
+  ok(u.dateFrom === "2026-10-24 09:00:00" || u.dateFrom <= "2026-10-24 09:00:00", "preview reports the date range");
+  ok(nSales() === before1, "preview writes nothing");
+
+  r = await upload(file1, { confirm: true });
+  u = await r.json();
+  ok(r.status === 200 && u.ok && u.dry === false && u.added === 2 && u.unchanged === 1 && u.uploadId > 0, "confirm imports the new bills " + JSON.stringify({ a: u.added, un: u.unchanged }));
+  ok(nSales() === before1 + 3, "3 new lines written (2 bills)");
+  const row = db.raw.prepare("select * from machine_sales where txn_id='up-new-1'").get();
+  ok(row.src === "upload" && row.transactiondate === "2026-10-24 09:00:00" && row.grandtotal === 60 && row.productname === "มินิ ลาร์นา เค้ก (ออริจินัล)" && row.status === "paid", "stored in the same shape as sheet rows (ISO date, numbers, Thai text)");
+  ok(db.raw.prepare("select count(*) n from machine_sales where txn_id='up-new-2'").get().n === 2, "two identical lines of one bill stay two lines");
+  ok(db.raw.prepare("select src from machine_sales where txn_id=?").get(existing).src === "sheet", "an identical bill is left alone (stays src=sheet)");
+  let list = await (await call("/api/admin/machine-sales", auth)).json();
+  ok(list.sales.some((s) => s.transactionid === "up-new-1") && list.uploads.length === 1 && list.uploads[0].added === 2 && list.uploads[0].filename === "ksher-test.xlsx", "page data shows the new bills + upload history");
+
+  // same file again -> everything unchanged, history still records it
+  r = await upload(file1, { confirm: true });
+  u = await r.json();
+  ok(u.added === 0 && u.changed === 0 && u.unchanged === 3 && nSales() === before1 + 3, "uploading the same file twice changes nothing");
+
+  // the 5-minute sheet sync must not undo an uploaded bill, nor add a second copy of its lines
+  salesServed.push({ transactiondate: "2026-10-24 09:00:00", transactionid: "up-new-1", ksherorderno: "x", merchantid: "m", kioskid: "larnacake01", kioskname: "larnacake01", paymentmethod: "Promptpay", coupon: "", promotion: "", cartenable: "Yes", status: "pending", productname: "มินิ ลาร์นา เค้ก (ออริจินัล)", subtotal: 60, discount: 0, grandtotal: 60 });
+  salesServed.push({ transactiondate: "2026-10-24 09:00:00", transactionid: "up-new-1", ksherorderno: "x", merchantid: "m", kioskid: "larnacake01", kioskname: "larnacake01", paymentmethod: "Promptpay", coupon: "", promotion: "", cartenable: "Yes", status: "pending", productname: "extra line", subtotal: 60, discount: 0, grandtotal: 60 });
+  const sync = await larna.syncMachineSales(env);
+  const after = db.raw.prepare("select status, src, productname from machine_sales where txn_id='up-new-1'").all();
+  ok(sync.ok && after.length === 1 && after[0].status === "paid" && after[0].src === "upload", "sheet sync leaves an uploaded bill alone " + JSON.stringify(after));
+  salesServed.length -= 2;
+
+  // a bill that differs (sheet says pending, Ksher's file says paid) is replaced, and flagged when the file has fewer lines
+  const pendingTxn = db.raw.prepare("select txn_id from machine_sales where status='pending' and src='sheet' group by txn_id having count(*)=1 limit 1").get().txn_id;
+  const pendingRow = db.raw.prepare("select * from machine_sales where txn_id=?").get(pendingTxn);
+  const paidNow = mk(pendingTxn, toKsherDate(pendingRow.transactiondate), pendingRow.productname, pendingRow.grandtotal, "paid", { "Ksher Order No": pendingRow.ksherorderno, "Merchant ID": pendingRow.merchantid, "Payment Method": pendingRow.paymentmethod, "Sub Total": pendingRow.subtotal, "KioskID": pendingRow.kioskid, "KioskName": pendingRow.kioskname });
+  u = await (await upload([paidNow])).json();
+  ok(u.changed === 1 && u.added === 0 && u.changedSample[0].before.status === "pending" && u.changedSample[0].after.status === "paid" && u.fewerLines === 0, "preview shows the pending -> paid change " + JSON.stringify(u.changedSample[0]));
+  u = await (await upload([paidNow], { confirm: true })).json();
+  const nowRow = db.raw.prepare("select status, src from machine_sales where txn_id=?").all(pendingTxn);
+  ok(u.changed === 1 && nowRow.length === 1 && nowRow[0].status === "paid" && nowRow[0].src === "upload", "the changed bill was replaced and marked as uploaded");
+  // …and the sheet (still saying pending) cannot flip it back
+  const sheetIdx = salesServed.findIndex((x) => x.transactionid === pendingTxn);
+  if (sheetIdx >= 0) salesServed[sheetIdx] = { ...salesServed[sheetIdx], status: "pending" };
+  await larna.syncMachineSales(env);
+  ok(db.raw.prepare("select status from machine_sales where txn_id=?").get(pendingTxn).status === "paid", "sheet sync cannot flip it back to pending");
+
+  const twoLine = existing; // 2+ lines in D1; the file has only one of them
+  u = await (await upload([existingKsher[0]])).json();
+  ok(u.changed === 1 && u.fewerLines === 1 && u.changedSample[0].fewerLines === true, "a file with fewer lines for a bill is flagged " + JSON.stringify({ c: u.changed, f: u.fewerLines }));
+  void twoLine;
+
+  // bills that are in D1 but not in the file are never deleted; they are only counted
+  u = await (await upload([mk("up-new-3", "24/10/2026 09:10:00", "มินิ ลาร์นา เค้ก (ออริจินัล)", 60), mk("up-new-4", "23/10/2026 08:00:00", "มินิ ลาร์นา เค้ก (ออริจินัล)", 60)])).json();
+  ok(u.added === 2 && u.missingFromFile >= 1, "bills missing from the file are reported, not deleted (" + u.missingFromFile + ")");
+
+  // validation: wrong file, bad rows, size, auth
+  r = await upload([{ "Name": "x", "Phone": "1" }]);
+  u = await r.json();
+  ok(r.status === 422 && !u.ok && /Transaction ID/.test(u.error), "a file without the Ksher columns is refused: " + u.error);
+  r = await upload([mk("bad-1", "not a date", "x", 60), mk("bad-2", "24/10/2026 10:00:00", "x", "abc"), { ...mk("", "24/10/2026 10:00:00", "x", 60) }]);
+  u = await r.json();
+  ok(r.status === 422 && !u.ok && u.errors.length === 3, "bad rows are listed and block the import " + JSON.stringify(u.errors));
+  const nBefore = nSales();
+  await upload([mk("bad-1", "not a date", "x", 60), mk("good-1", "24/10/2026 10:00:00", "x", 60)], { confirm: true });
+  ok(nSales() === nBefore, "a file with any bad row writes nothing at all");
+  u = await (await upload([mk("str-1", "24/10/2026 11:00:00", "มินิ ลาร์นา เค้ก (ออริจินัล)", "1,200"), mk("serial-1", 46319.45, "มินิ ลาร์นา เค้ก (ออริจินัล)", 60)], { confirm: true })).json();
+  const strRow = db.raw.prepare("select grandtotal from machine_sales where txn_id='str-1'").get();
+  ok(u.ok && strRow.grandtotal === 1200 && db.raw.prepare("select transactiondate d from machine_sales where txn_id='serial-1'").get().d.startsWith("2026-10-24 10:"), "amounts like \"1,200\" and Excel serial dates are accepted");
+  r = await call("/api/admin/machine-sales/upload", { method: "POST", body: JSON.stringify({ rows: fresh }) });
+  ok(r.status === 401, "upload needs the PIN token");
+  r = await upload("nope");
+  ok(r.status === 400, "rows must be a list");
+  r = await upload([]);
+  ok(r.status === 400, "empty file refused");
+  r = await upload(Array.from({ length: larna.UPLOAD_MAX_ROWS + 1 }, (_, i) => mk("many-" + i, "24/10/2026 10:00:00", "x", 1)));
+  ok(r.status === 413, "too many rows refused");
+  r = await call("/api/admin/machine-sales/upload", { method: "OPTIONS" });
+  ok(r.status === 200 && r.headers.get("Access-Control-Allow-Methods").includes("POST"), "CORS preflight for the upload");
+  r = await call("/api/admin/machine-sales/upload", { method: "GET", ...auth });
+  ok(r.status !== 200, "upload is POST only");
+
+  // many bills at once: batches stay under D1's limits
+  const many = Array.from({ length: 400 }, (_, i) => mk("bulk-" + i, "22/10/2026 10:" + String(i % 60).padStart(2, "0") + ":00", "มินิ ลาร์นา เค้ก (ออริจินัล)", 60));
+  const n0 = nSales();
+  u = await (await upload(many, { confirm: true })).json();
+  ok(u.ok && u.added === 400 && nSales() === n0 + 400, "400 bills in one go " + JSON.stringify({ a: u.added }));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
