@@ -1,0 +1,9 @@
+# files that live in this repo but are not part of the website (the Workers asset uploader skips them; _redirects cannot return 404)
+cloudflare-worker.js
+larna-data.js
+wrangler.larnaapi.jsonc
+wrangler-home3d.jsonc
+_apps-script-reference.gs
+migrations
+scripts
+wrangler.jsonc
